@@ -9,6 +9,7 @@ Run DeepSeek Harness in an Electron window with a private data directory, scoped
 ## Contents
 
 - [Build and run](#build-and-run)
+- [Windows Git checkout](#windows-checkout)
 - [Use the launcher](#use-the-launcher)
 - [Updates and recovery](#updates-and-recovery)
 - [Development and checks](#development-and-checks)
@@ -33,6 +34,20 @@ npm run package:mac
 ```
 
 The DMG appears under `.cache/dist/`. This local build has no Developer ID signing or Apple notarization; macOS may require an explicit security approval. Packaging refuses a missing payload. The installer includes Git, Node, pnpm, the DSH source and built dependencies, so first-run preparation does not install developer tools or fetch npm packages. Model requests and optional plugin downloads still need network access.
+
+### Building from a Windows Git checkout {#windows-checkout}
+
+You can clone your fork on Windows and ask a local coding assistant to build the launcher. This route requires Git, a supported Node.js runtime with npm, and a Windows x64 build environment. The shipped build-kit scripts bootstrap their own pinned tools afterward. Use a short local checkout path and preserve existing changes before pulling. Installing Git and Node for the checkout workflow does not change the self-contained installer requirements.
+
+The repository is not an extracted build kit. Do not run `windows/Build-Windows.cmd` in place: its PowerShell script expects `desktop-launcher/`, `source.tar.gz`, and `source.json` beside it. Those source files are generated artifacts and are not committed. `scripts/create-windows-kit.mjs` currently invokes `/usr/bin/tar` and `/usr/bin/zip`; direct execution on Windows is not yet supported. The local assistant must first adapt and validate that exporter for Windows, or obtain an exported kit from a supported host. This prerequisite remains unverified on Windows; cloning alone does not provide a one-command build.
+
+When adapting the exporter, retain its guarantees: export the selected committed Git revision, omit `desktop-launcher/` from the DSH snapshot, materialize only internal source links, and record the archive SHA-256, source version and commit in `source.json`. Copy the launcher source and Windows entry scripts into the expected kit layout. Never include `.env`, credentials, user data, `node_modules`, or local caches in the source snapshot. Keep the Git checkout separate from the build output so a retry cannot overwrite local development work.
+
+Use this handoff prompt with the assistant in the Windows checkout:
+
+> Read the repository AGENTS.md and desktop-launcher/README.md. Build the independent launcher in desktop-launcher, not the official apps/desktop client. Inspect git status and the fork remote before updating; preserve local changes. First prepare a valid Windows build kit. The current exporter uses macOS tool paths, so adapt and test it for Windows before claiming this route works. Use the selected committed source revision and preserve snapshot hashes and internal-link validation. Do not archive credentials or local user data. Use Build-Windows.cmd in the generated kit. Configure its proxy.txt with my actual HTTP proxy if needed; do not change global npm/Git settings or disable TLS checks. Keep the locked dependency versions. If changing the launcher version, update only its package.json version and the two root version fields in package-lock.json. Do not replace version strings throughout dependency records. Explicitly install Electron using the existing build script. Run pnpm commands inside the extracted DSH source directory, which declares pnpm. If packaging fails after the payload is complete, use Continue-Packaging.cmd in that same kit to preserve downloads and the compiled payload. Do not skip failing tests. Inspect the not ok sections and the first build error. Deliver the Setup.exe path, SHA-256, source commit and BUILD-SUCCESS.txt only after unit tests, runtime start/restart, packaging, occupied-port and import checks pass. Report unverified installer interaction separately. Do not install or publish it without my request.
+
+The output is an unsigned `DSH-Launcher-<version>-Windows-x64-Setup.exe` under the generated kit's `desktop-launcher/.cache/dist/`. `BUILD-SUCCESS.txt` at the kit root is the script's completion record; an executable appearing before step 7 is not sufficient. Keep the same kit directory for retries so its `proxy.txt`, download cache and completed payload remain available. A Git update changes source files; it does not rebuild an existing installer or refresh an older exported kit.
 
 ### Windows build kit
 

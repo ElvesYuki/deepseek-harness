@@ -9,6 +9,7 @@
 ## 目录
 
 - [构建与运行](#build-and-run)
+- [Windows Git 工作区构建](#windows-checkout)
 - [使用启动器](#use-the-launcher)
 - [更新与恢复](#updates-and-recovery)
 - [开发与检查](#development-and-checks)
@@ -33,6 +34,20 @@ npm run package:mac
 ```
 
 DMG 输出在 `.cache/dist/` 下。本地构建没有 Developer ID 签名或 Apple 公证，macOS 可能要求明确的安全授权。缺少运行包时，打包会停止。安装包包含 Git、Node、pnpm、DSH 源码及构建依赖，因此首次准备无需安装开发工具或下载 npm 包。模型请求及可选插件下载仍需要网络。
+
+### 从 Windows Git 工作区构建 {#windows-checkout}
+
+可以在 Windows 克隆自己的 fork，再让本地编程 AI 构建启动器。这条路径需要 Git、受支持的 Node.js 与 npm，以及 Windows x64 构建环境；构建包脚本随后会准备自己固定版本的工具。使用较短的本地检出路径，拉取更新前保留已有修改。为源码工作流安装 Git 和 Node 不会改变安装包自带运行工具的要求。
+
+Git 仓库不是解压后的构建包。不要直接运行 `windows/Build-Windows.cmd`：它的 PowerShell 脚本要求同级存在 `desktop-launcher/`、`source.tar.gz` 和 `source.json`。后两个文件是生成产物，不会提交到仓库。`scripts/create-windows-kit.mjs` 目前调用 `/usr/bin/tar` 和 `/usr/bin/zip`，尚不支持直接在 Windows 执行。本地 AI 必须先适配并验证 Windows 导出流程，或从受支持的主机获得导出的构建包。这一步尚未在 Windows 验证，不能把克隆仓库等同于一条命令完成构建。
+
+适配导出脚本时须保留原有保证：导出选定的已提交 Git 版本，从 DSH 快照中排除 `desktop-launcher/`，仅将源码内部链接转成普通文件或目录，并在 `source.json` 记录压缩包 SHA-256、源码版本和提交号。将启动器源码和 Windows 入口脚本复制到构建包要求的布局中。源码快照不得包含 `.env`、凭据、用户数据、`node_modules` 或本地缓存。Git 工作区和构建产物分开放置，避免重试覆盖本地开发内容。
+
+在 Windows 工作区中，可以将下面的任务说明交给 AI：
+
+> 阅读仓库 AGENTS.md 和 desktop-launcher/README.zh.md。构建 desktop-launcher 目录下的独立启动器，不是官方 apps/desktop 客户端。 更新前检查 git status 和 fork 远程地址，保留本地修改。 先准备有效的 Windows 构建包。当前导出脚本使用 macOS 工具路径， 须适配并测试 Windows 导出流程，才能声称这条路径可用。 使用选定的已提交源码版本，保留快照哈希及内部链接校验。 不要将凭据或本地用户数据打入快照。 在生成的构建包中运行 Build-Windows.cmd；必要时将我的实际 HTTP 代理 填入 proxy.txt，不修改全局 npm/Git 配置，不关闭 TLS 校验。 保留锁定的依赖版本。若修改启动器版本，只更新 package.json 的 version 以及 package-lock.json 顶层和 packages[""] 中的 version。 不得在依赖记录中全局替换版本字符串。 使用现有构建脚本显式安装 Electron；pnpm 命令必须在声明使用 pnpm 的解压后 DSH 源码目录中执行。 运行包完成后若打包失败，在同一构建包运行 Continue-Packaging.cmd， 复用已下载内容和编译完成的运行包。 不得跳过失败测试；检查 not ok 段落和首个构建错误。 只有单元测试、服务启动重启、打包、端口占用和导入检查全部通过后， 才交付 Setup.exe 路径、SHA-256、源码提交号及 BUILD-SUCCESS.txt。 单独说明尚未验证的安装程序交互。未经我要求，不安装或发布产物。
+
+产物是生成的构建包中 `desktop-launcher/.cache/dist/` 下的未签名 `DSH-Launcher-<version>-Windows-x64-Setup.exe`。构建包根目录的 `BUILD-SUCCESS.txt` 是脚本完成记录；仅在第 7 步前出现可执行文件并不代表完成。重试时沿用同一构建目录，以保留 `proxy.txt`、下载缓存和已完成的运行包。Git 更新只改变源码，不会重建已有安装包或刷新旧的导出构建包。
 
 ### Windows 构建包
 
