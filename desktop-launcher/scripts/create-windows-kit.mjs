@@ -23,7 +23,7 @@ await c({ gzip: true, file: archive, cwd: source, portable: true }, ['.']);
 const manifest = JSON.parse(await readFile(join(source, 'package.json'), 'utf8'));
 await writeFile(join(kit, 'source.json'), JSON.stringify({ commit, version: manifest.version, sha256: createHash('sha256').update(await readFile(archive)).digest('hex') }, null, 2) + '\n');
 const launcher = join(kit, 'desktop-launcher'); await mkdir(launcher);
-for (const name of ['src', 'ui', 'scripts', 'tests', 'package.json', 'package-lock.json', 'toolchain.json', 'pnpm-workspace.yaml', 'README.md', 'README.zh.md', 'README.i18n.yaml', '.gitignore', 'oxlint.launcher.json']) {
+for (const name of ['src', 'ui', 'scripts', 'tests', 'package.json', 'package-lock.json', 'toolchain.json', 'pnpm-workspace.yaml', 'README.md', 'README.zh.md', 'README.i18n.yaml', '.gitignore', '.npmrc', 'oxlint.launcher.json']) {
   await cp(join(root, name), join(launcher, name), { recursive: true });
 }
 for (const name of ['Build-Windows.cmd', 'Continue-Packaging.cmd', 'Build-Windows.ps1', 'README.txt']) await cp(join(root, 'windows', name), join(kit, name));

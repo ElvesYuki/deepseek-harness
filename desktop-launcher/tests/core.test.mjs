@@ -26,7 +26,7 @@ test('release selection ignores drafts, other product tags and option-like input
 });
 test('child proxies are scoped, loopback bypassed and inherited credentials removed', () => {
   const paths = { nodeBin: '/node', gitBin: '/git', gitExec: '/exec', home: '/home' };
-  const base = { PATH: '/bin', API_KEY: 'secret', DEEPSEEK_API_KEY: 'secret', GITHUB_TOKEN: 'secret', HTTPS_PROXY: 'http://old', NODE_OPTIONS: '--inspect' };
+  const base = { PATH: '/bin', API_KEY: 'secret', DEEPSEEK_API_KEY: 'secret', GITHUB_TOKEN: 'secret', HTTPS_PROXY: 'http://old', NODE_OPTIONS: '--inspect', npm_config_ignore_scripts: 'true', npm_config_userconfig: '/launcher/.npmrc' };
   const config = { ...DEFAULTS, proxy: 'http://localhost:7890', proxyService: false };
   const update = childEnvironment(base, config, 'update', paths);
   assert.equal(update.HTTPS_PROXY, config.proxy);
@@ -34,6 +34,8 @@ test('child proxies are scoped, loopback bypassed and inherited credentials remo
   assert.equal(childEnvironment(base, config, 'service', paths).DEEPSEEK_API_KEY, undefined);
   assert.equal(update.GITHUB_TOKEN, undefined);
   assert.equal(update.NODE_OPTIONS, undefined);
+  assert.equal(update.npm_config_ignore_scripts, undefined);
+  assert.equal(update.npm_config_userconfig, undefined);
   assert.equal(update.CI, 'true');
   assert.equal(update.GIT_CONFIG_GLOBAL, process.platform === 'win32' ? 'NUL' : '/dev/null');
   assert.equal(childEnvironment(base, config, 'service', paths).GIT_CONFIG_GLOBAL, undefined);

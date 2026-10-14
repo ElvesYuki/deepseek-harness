@@ -9,7 +9,7 @@ export async function buildFingerprint(launcher) {
   const hash = createHash('sha256');
   async function add(path, label) { hash.update(label + '\0'); hash.update(await readFile(path)); hash.update('\0'); }
   for (const name of ['source.json', 'source.tar.gz']) await add(join(launcher, '..', name), name);
-  for (const name of ['package.json', 'package-lock.json', 'toolchain.json']) await add(join(launcher, name), name);
+  for (const name of ['package.json', 'package-lock.json', 'toolchain.json', '.npmrc']) await add(join(launcher, name), name);
   async function visit(folder) {
     const entries = await readdir(join(launcher, folder), { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name, 'en'));

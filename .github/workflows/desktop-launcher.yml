@@ -1,10 +1,8 @@
 name: Independent desktop launcher
 on:
-  pull_request:
-    paths: ['desktop-launcher/**', '.github/workflows/desktop-launcher.yml']
+  workflow_call:
   push:
     branches: [master]
-    paths: ['desktop-launcher/**', '.github/workflows/desktop-launcher.yml']
   workflow_dispatch:
     inputs:
       windows_installer:
@@ -20,7 +18,7 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: desktop-launcher
@@ -42,6 +40,22 @@ jobs:
       - run: node node_modules/electron/install.js
       - run: npm run test:import
       - run: npm run export:windows
+      - uses: pnpm/action-setup@v5.0.0
+      - name: Install current DSH source dependencies
+        working-directory: .
+        run: pnpm install --frozen-lockfile
+      - name: Build current DSH source
+        working-directory: .
+        run: pnpm run build
+      - name: Verify real DSH startup and authenticated page
+        run: npm run test:source
+      - name: Retain source startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: launcher-source-diagnostics-${{ matrix.os }}
+          include-hidden-files: true
+          path: desktop-launcher/.cache/test-results/source-*/smoke.log
   windows-installer:
     if: github.event_name == 'workflow_dispatch' && inputs.windows_installer
     runs-on: windows-latest

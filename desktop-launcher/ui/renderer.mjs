@@ -26,6 +26,7 @@ function formSettings() {
     proxyUpdates: $('proxyUpdates').checked, proxyService: $('proxyService').checked, proxyBrowser: $('proxyBrowser').checked };
 }
 function renderDirty() {
+  $('dirty').dataset.dirty = String(dirty);
   $('dirty').textContent = dirty ? copy.unsaved : copy.settingsClean;
   $('resetSettings').disabled = !dirty || currentState?.busy;
   $('settings').querySelector('button[type=submit]').disabled = !dirty || currentState?.busy;
@@ -36,6 +37,10 @@ $('resetSettings').addEventListener('click', () => {
 });
 function render(next) {
   currentState = next;
+  document.querySelector('.hero').dataset.status = next.failure ? 'error' : next.busy ? 'busy' : next.running ? 'running' : 'idle';
+  $('port').disabled = next.running || next.busy;
+  document.querySelector('[data-action=start]').classList.toggle('primary', !next.running);
+  document.querySelector('[data-action=open]').classList.toggle('primary', next.running);
   $('defaultData').textContent = (next.defaultData?.available ? copy.importFound : copy.importMissing) + (next.defaultData?.path || '~/.dsh');
   $('phase').textContent = copy.phase[next.phase] || next.phase;
   $('version').textContent = next.active ? copy.version + next.active.version : copy.noVersion;

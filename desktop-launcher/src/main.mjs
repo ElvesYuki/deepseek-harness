@@ -140,7 +140,7 @@ async function main() {
   await mkdir(root, { recursive: true, mode: 0o700 });
   manager = new Manager(root, payload, publish, log);
   window = new BrowserWindow({ width: 780, height: 660, minWidth: 620, minHeight: 560, title: 'DSH Launcher',
-    backgroundColor: '#10151d', webPreferences: { preload: join(base, 'src/preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
+    backgroundColor: '#0b1120', webPreferences: { preload: join(base, 'src/preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
   secureWindow(window);
   window.webContents.on('will-navigate', (event, url) => { if (url !== page) event.preventDefault(); });
   ipcMain.handle('launcher:action', async (event, name, value) => {
@@ -205,6 +205,20 @@ async function main() {
       return document.documentElement.scrollWidth <= innerWidth;
     })()`);
     if (!compactChecks) throw new Error('Compact settings interaction failed');
+    const fits = await window.webContents.executeJavaScript(`(() => {
+      const save = document.querySelector('#settings button[type=submit]').getBoundingClientRect();
+      return save.bottom <= innerHeight && save.right <= innerWidth;
+    })()`);
+    if (!fits) throw new Error('Default window clips settings actions');
+    await mkdir(smokeRoot, { recursive: true });
+    window.setSize(620, 560);
+    const narrowFits = await window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => {
+      resolve(document.documentElement.scrollWidth <= innerWidth);
+    }))`);
+    if (!narrowFits) throw new Error('Minimum window has horizontal overflow');
+    await writeFile(join(smokeRoot, 'management-compact.png'), (await window.webContents.capturePage()).toPNG());
+    window.setSize(780, 660);
+    await window.webContents.executeJavaScript('document.activeElement.blur()');
     if (process.argv.includes('--smoke-import')) {
       const source = await mkdtemp(join(smokeRoot, 'import-source-'));
       await mkdir(join(source, 'sessions'));

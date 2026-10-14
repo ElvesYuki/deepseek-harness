@@ -12,11 +12,11 @@ test('resume refuses missing records and changed inputs, while unrelated logs do
   for (const dir of ['src', 'scripts']) await mkdir(join(launcher, dir), { recursive: true });
   await mkdir(payload);
   for (const name of ['source.json', 'source.tar.gz']) await writeFile(join(root, name), name);
-  for (const name of ['package.json', 'package-lock.json', 'toolchain.json', 'src/main.mjs', 'scripts/build.mjs']) await writeFile(join(launcher, name), name);
+  for (const name of ['package.json', 'package-lock.json', 'toolchain.json', '.npmrc', 'src/main.mjs', 'scripts/build.mjs']) await writeFile(join(launcher, name), name);
   await assert.rejects(verifyBuild(launcher, payload), { code: 'ENOENT' });
   await recordBuild(launcher, payload); await verifyBuild(launcher, payload);
   await writeFile(join(root, 'build.log'), 'diagnostics'); await verifyBuild(launcher, payload);
-  for (const path of [join(root, 'source.tar.gz'), join(launcher, 'package-lock.json'), join(launcher, 'toolchain.json'), join(launcher, 'scripts/build.mjs')]) {
+  for (const path of [join(root, 'source.tar.gz'), join(launcher, 'package-lock.json'), join(launcher, 'toolchain.json'), join(launcher, '.npmrc'), join(launcher, 'scripts/build.mjs')]) {
     await writeFile(path, 'changed');
     await assert.rejects(verifyBuild(launcher, payload), /Build inputs changed/);
     await recordBuild(launcher, payload); await verifyBuild(launcher, payload);

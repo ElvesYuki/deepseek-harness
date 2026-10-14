@@ -21,9 +21,12 @@ Developers need Git, Node.js and npm plus the native build tools required by DSH
 
 ```sh
 npm ci
+npm run setup:electron
 npm run prepare:payload
 npm start
 ```
+
+Launcher `.npmrc` disables dependency install scripts; `npm run setup:electron` explicitly prepares the Electron executable before local development or macOS packaging. Windows scripts and CI perform this step explicitly. The exported kit includes `.npmrc`, and resume fingerprints include it. DSH source installation uses its own pnpm lifecycle policy, with inherited npm configuration removed from its child environment.
 
 Payload preparation downloads checksum-verified Node.js, portable Git from desktop/dugite-native, and pnpm. It exports the current tracked Git commit, excludes this launcher, installs the frozen DSH dependency set, builds the product and checks the CLI entry. Tracked modifications must be committed before preparation. Untracked files, credentials and local `.env` files are not copied. The build log and download cache are under `.cache/`; interrupted preparation leaves diagnostic files and may leave a lock that must be removed only after confirming that the preparation process has exited.
 
@@ -64,7 +67,7 @@ Windows package-directory links are recorded as relative metadata and recreated 
 
 ## Use the launcher {#use-the-launcher}
 
-The compact management window keeps service status and available service actions above four tabs: connection settings, updates, data and logs. Tabs support arrow-key navigation and retain unsaved settings. Changed settings show a pending indicator and can be reverted; the GitHub connection test is unavailable until changes are saved or reverted, so it always tests the saved configuration.
+The compact management window keeps service status and available service actions above four tabs: connection settings, updates, data and logs. The dark blue interface uses green for primary actions and running status, with native window controls. Connection settings group proxy scopes, keep save actions visible at the default window size, and collapse the proxy and API-key guidance. The port field is disabled while the service is running or an operation is active. Tabs support arrow-key navigation and retain unsaved settings. Changed settings show a pending indicator and can be reverted; the GitHub connection test is unavailable until changes are saved or reverted, so it always tests the saved configuration.
 
 The management window opens the DSH workspace in a separate, sandboxed Electron window. Closing the workspace returns to management without stopping the service. Quitting the launcher requests confirmation when a service or build is active, then stops its owned process tree. It does not terminate unrelated DSH applications.
 
@@ -96,7 +99,7 @@ npm run test:occupied
 npm run test:update
 ```
 
-The independent lint and unit checks run through `npm run check`. The desktop-launcher workflow runs checks, import smoke and kit export on Windows and macOS; its manual Windows installer option runs the complete build. Tool versions and checksums live in `toolchain.json`; pnpm follows the source manifest. `node scripts/size-report.mjs` measures an existing payload without deleting dependencies.
+The independent lint and unit checks run through `npm run check`. The desktop-launcher reusable workflow runs checks, import smoke, kit export and a real current-source build/start/restart check on Windows and macOS. PR CI calls it and includes its result in `all checks passed`; every master push also triggers it, including upstream-only changes. Its manual Windows installer option runs the complete build. `npm run test:source` requires root dependencies and `pnpm run build`, then validates the real CLI announcement, authenticated page access and restart using isolated data and OS-assigned ports; it makes no model request and retains redacted failure logs under `.cache/test-results/source-*/`. Tool versions and checksums live in `toolchain.json`; pnpm follows the source manifest. `node scripts/size-report.mjs` measures an existing payload without deleting dependencies.
 
 The import smoke exercises the management button and IPC with a fixture directory and confirmed test dialogs, checks imported files and the retained backup, and captures the management window. The native directory picker itself requires manual verification. Tests print TAP failure details as each case finishes. Process fixtures read complete marked PID records from stdout and ignore stderr diagnostics. Service fixtures await process shutdown before deleting their temporary runtime directories. The Node tests exercise import replacement, copy rejection, failed commits and interrupted recovery, settings validation, release admission, process cancellation, descendant cleanup and interrupted update recovery. The Electron smoke opens the actual management window with a separate test data directory, validates its rendered text, and writes `.cache/test-results/management.png`. It does not call a model or establish full DSH compatibility. The runtime smoke excludes developer tools from PATH and exercises two real service starts, HTTP page requests and stops. The desktop smoke opens the real DSH page in Electron and writes `.cache/test-results/workspace.png`. The update smoke downloads a fixed official release, builds it, backs up a test marker, switches versions and starts the service in dedicated test state; it needs network access, extra time and disk space. Runtime preparation and packaging are separate checks; a management-window smoke does not certify an offline installation or a real version upgrade.
 

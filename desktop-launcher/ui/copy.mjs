@@ -13,10 +13,10 @@ export const zh = {
   activate: '切换到新版', cancel: '取消准备', notes: '查看更新说明', release: '在浏览器查看发布页',
   updateHint: '准备新版时旧服务可继续运行。切换会停止任务并备份数据；失败后不自动降级会话。',
   proxyTitle: '代理设置', proxy: '代理地址（留空为直连）', proxyUpdates: 'GitHub 和依赖下载', proxyService: '模型与服务请求',
-  proxyBrowser: '工作区页面网络', actualPort: '实际端口：', autoPort: '（首选端口被占用，已自动切换）', port: '首选端口（占用时自动切换）', save: '保存设置', testProxy: '测试 GitHub 连接',
+  proxyBrowser: '工作区页面网络', actualPort: '实际端口：', autoPort: '（首选端口被占用，已自动切换）', port: '首选端口', portHint: '占用时自动切换，修改前请停止服务', connectionHelp: '代理与模型密钥说明', save: '保存设置', testProxy: '测试 GitHub 连接',
   proxyHint: '模型 API Key 请在工作区的模型设置中配置，不会自动继承终端密钥。支持无认证 HTTP / HTTPS 代理。本地地址始终直连；服务代理保存后需重启。端口修改前请停止服务。',
   logs: '运行日志', logHint: '最近 300 条 · 完整日志位于数据目录', saved: '设置已保存。服务代理在下次启动时生效。',
-  connected: 'GitHub 连接成功。', noRelease: '尚未检查更新', noVersion: '等待准备内置版本', version: '当前版本：', latest: '最新发布：',
+  connected: 'GitHub 连接成功。', noRelease: '尚未检查更新', noVersion: '等待准备内置版本', version: 'DSH 内核：', latest: '最新发布：',
   phase: { importing: '正在导入数据', idle: '准备启动', preparing: '正在释放内置版本', starting: '服务启动中', running: '服务运行中', stopped: '服务已停止', stopping: '正在停止服务', fetching: '正在下载官方源码', building: '正在安装依赖并构建', backup: '正在备份数据' },
   errors: {
     readyAddress: '服务返回了不兼容的访问地址。请检查导入配置中的 publicUrl 或 TLS 设置；客户端需要本机 HTTP 地址。',

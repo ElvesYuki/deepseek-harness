@@ -21,7 +21,9 @@
     "lint": "oxlint --config oxlint.launcher.json src scripts tests ui",
     "check": "npm run lint && npm test",
     "export:windows": "node scripts/create-windows-kit.mjs --directory",
-    "export:windows:zip": "node scripts/create-windows-kit.mjs"
+    "export:windows:zip": "node scripts/create-windows-kit.mjs",
+    "setup:electron": "node node_modules/electron/install.js",
+    "test:source": "node scripts/smoke-source.mjs"
   },
   "dependencies": {
     "semver": "7.8.5"

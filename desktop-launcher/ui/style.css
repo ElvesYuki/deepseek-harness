@@ -1,4 +1,89 @@
-:root{color-scheme:dark;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e2e8f2;background:#10151d}*{box-sizing:border-box}body{margin:0}header{display:flex;align-items:center;gap:16px;padding:24px 32px;border-bottom:1px solid #283242}header button{margin-left:auto}.mark{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#b9eecc;color:#182e24;font-size:27px;font-weight:700}h1{font-size:20px;letter-spacing:-.5px;margin:0}header p{margin:0;color:#8b9bad;font-size:12px}main{max-width:1240px;margin:auto;padding:24px 32px}section{border:1px solid #293344;border-radius:16px;background:#171e29;padding:22px}h2{font-size:17px;margin:0 0 12px}.hero{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(110deg,#1d302a,#18232f);margin-bottom:16px}.hero h2{font-size:25px;margin:4px 0}.hero p{margin:0;color:#a4b5be}.eyebrow{font-size:10px;letter-spacing:2px;color:#9bc6ad}.actions{display:flex;flex-wrap:wrap;gap:8px}button{font:inherit;font-size:12px;border:1px solid #405064;border-radius:8px;padding:8px 12px;background:#232f40;color:#e2e8f2;cursor:pointer}button:hover:enabled{background:#30405a}button.primary{background:#b9eecc;color:#173825;border-color:#b9eecc;font-weight:600}button:disabled{opacity:.36;cursor:default}button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid #b9eecc;outline-offset:3px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.muted,.hint{color:#98a9be;font-size:12px}.hint{margin:14px 0 0}label{display:block;margin:9px 0;color:#b9c8d9;font-size:12px}input:not([type=checkbox]){width:100%;display:block;background:#101722;border:1px solid #3b4960;color:#e2e8f2;border-radius:7px;padding:9px;margin-top:4px}.checks{display:flex;flex-wrap:wrap;gap:4px 12px}.checks label{display:flex;align-items:center;gap:5px}input[type=checkbox]{accent-color:#b9eecc}.logs{margin-top:16px}.log-title{display:flex;justify-content:space-between;align-items:center}.logs pre{height:160px;overflow:auto;margin-bottom:0;color:#a4b5ca;font:11px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}#notice:not(:empty){background:#3b2e22;color:#ffd9a2;padding:12px 16px;border-radius:10px;margin:0 0 16px}#retry:not([hidden]){margin-bottom:16px}details{margin-top:14px}summary{cursor:pointer;font-size:12px;color:#b9eecc}#notes{max-height:220px;overflow:auto;white-space:pre-wrap;font-size:12px}#latest{font-size:16px}
-.data-import{margin-bottom:16px}.data-import .actions{margin-top:12px}#defaultData{overflow-wrap:anywhere}
-/* Compact management panels keep service controls visible across settings pages. */
-[hidden]{display:none!important}:root{font-size:13px}header{padding:16px 22px;gap:12px}.mark{width:34px;height:34px;border-radius:10px;font-size:20px;font-weight:500}h1{font-size:17px;font-weight:500}main{padding:18px 22px;max-width:900px}section{padding:18px;border-radius:12px}h2{font-size:15px;font-weight:500;margin-bottom:10px}.hero{padding:16px 18px;gap:16px;background:#192820;margin-bottom:12px}.hero h2{font-size:18px;font-weight:500}.hero p{font-size:12px}.hero .actions{justify-content:flex-end;max-width:270px}button{padding:7px 11px}button.primary{font-weight:500}.tabs{display:flex;gap:4px;border-bottom:1px solid #293344;margin:14px 0 16px;padding-bottom:8px}.tabs button{background:transparent;border-color:transparent;color:#98a9be;font-size:13px}.tabs button[aria-selected=true]{background:#26392f;color:#c8f3d6}.data-import,.logs{margin:0}.hint{margin:10px 0 0}.checks{gap:4px 18px}.checks label{margin:8px 0}#settings>label{margin:0 0 10px}#port{max-width:160px}#dirty{min-height:20px;margin:10px 0 8px}#notice:not(:empty){padding:10px 12px;margin-bottom:10px;white-space:pre-wrap;overflow-wrap:anywhere}#latest{font-size:14px}.logs pre{height:230px;margin-top:10px}.log-title{gap:12px;flex-wrap:wrap}.log-title h2{margin:0}#notes{max-height:150px}#defaultData{margin-bottom:14px}@media(max-width:660px){header,main{padding-left:16px;padding-right:16px}.hero{align-items:flex-start}.hero .actions{max-width:200px}.checks{gap:2px 12px}header p{display:none}}
+:root {
+  color-scheme: dark;
+  font: 13px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+  color: #edf2f7;
+  background: #0b1120;
+  --surface: #121d30;
+  --input: #0c1525;
+  --border: #283750;
+  --muted: #a2b1c7;
+  --accent: #42d5a5;
+  --radius: 12px;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+header { display: flex; align-items: center; gap: 10px; padding: 16px 22px 12px; }
+header button { margin-left: auto; }
+.mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: #08251c; font-size: 21px; font-weight: 500; }
+h1 { margin: 0; font-size: 16px; font-weight: 500; letter-spacing: -.3px; }
+header p { margin: 1px 0 0; color: var(--muted); font-size: 12px; }
+main { max-width: 1000px; margin: auto; padding: 0 22px 20px; }
+section { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: 16px; }
+h2 { margin: 0 0 12px; font-size: 14px; font-weight: 500; }
+p { overflow-wrap: anywhere; }
+.hero { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; background: linear-gradient(110deg, #122c2b, #121d30 75%); border-color: #25413f; }
+.hero h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 5px; font-size: 17px; }
+.hero h2::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #9aaac0; flex-shrink: 0; }
+.hero[data-status=running] h2::before { background: var(--accent); box-shadow: 0 0 0 4px #42d5a514; }
+.hero[data-status=busy] h2::before { background: #e9c274; }
+.hero[data-status=error] h2::before { background: #fb9ba8; }
+.hero p { margin: 0; color: var(--muted); font-size: 12px; }
+#actualPort:not(:empty) { color: #90e7cb; margin-top: 2px; }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.hero .actions { flex-shrink: 0; justify-content: flex-end; }
+button { font: inherit; font-size: 12px; font-weight: 500; min-height: 34px; border: 1px solid #354761; border-radius: 8px; padding: 6px 11px; background: #1a2940; color: #edf2f7; cursor: pointer; transition: background .12s, border-color .12s; }
+button:hover:enabled { background: #243854; border-color: #58708f; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #08251c; }
+button.primary:hover:enabled { background: #72e5bf; border-color: #72e5bf; }
+button[data-action=stop] { color: #ffb5bf; border-color: #65404e; background: #2b202e; }
+button:disabled { opacity: .42; cursor: default; }
+button:focus-visible, input:focus-visible, summary:focus-visible, pre:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--border); margin: 4px 0 14px; }
+.tabs button { position: relative; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 13px; padding: 8px 2px 11px; }
+.tabs button:hover:enabled { background: transparent; color: #edf2f7; }
+.tabs button[aria-selected=true] { color: var(--accent); }
+.tabs button[aria-selected=true]::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--accent); }
+.muted, .hint { color: var(--muted); font-size: 12px; }
+.hint { margin: 8px 0 0; }
+label { display: block; color: #c8d4e5; font-size: 12px; }
+input:not([type=checkbox]) { width: 100%; display: block; background: var(--input); border: 1px solid #3a4b65; color: #edf2f7; font: 13px/1.4 ui-monospace, "SFMono-Regular", Consolas, monospace; border-radius: 8px; padding: 9px 11px; margin-top: 6px; }
+input::placeholder { color: #93a4bd; }
+input:disabled { color: #93a4bd; background: #162035; cursor: not-allowed; }
+.checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 14px; }
+.checks label { display: flex; align-items: center; gap: 7px; padding: 9px 8px; background: var(--input); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+.checks label:has(input:checked) { border-color: #386657; background: #142a2a; }
+input[type=checkbox] { width: 14px; height: 14px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+.port-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 2px; }
+.port-row label { flex: 1; }
+#port { width: 112px; margin: 0; }
+#portHint { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 14px; }
+#dirty { margin: 0; max-width: 220px; }
+#dirty[data-dirty=true] { color: #f1ce86; }
+.guidance { margin-top: 12px; }
+summary { cursor: pointer; color: var(--muted); font-size: 12px; width: fit-content; }
+summary:hover { color: #edf2f7; }
+.guidance .hint { padding: 10px 12px; border-left: 2px solid #35536b; background: var(--input); border-radius: 0 6px 6px 0; }
+#notice:not(:empty) { border: 1px solid #655030; background: #30281d; color: #ffe0a5; padding: 10px 12px; border-radius: 8px; margin: 0 0 10px; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+#retry:not([hidden]) { margin-bottom: 10px; }
+#latest { font-size: 14px; }
+details { margin-top: 12px; }
+#notes { max-height: 160px; overflow: auto; white-space: pre-wrap; font-size: 12px; }
+.data-import .actions { margin-top: 12px; }
+#defaultData { margin-bottom: 12px; }
+.log-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.log-title h2 { margin: 0; }
+.logs pre { height: 240px; overflow: auto; margin: 12px 0 0; padding: 10px; border-radius: 8px; background: var(--input); color: #bacbe1; font: 12px/1.6 ui-monospace, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 660px) {
+  header { padding: 14px 16px 12px; }
+  main { padding: 0 16px 16px; }
+  .hero { gap: 10px; padding: 14px; }
+  .hero .actions { max-width: 200px; gap: 6px; }
+  .settings-footer { flex-wrap: wrap; gap: 8px; }
+  #dirty { max-width: none; }
+  .settings-footer .actions { margin-left: auto; }
+  .checks { gap: 6px; }
+  .checks label { font-size: 12px; padding: 8px 6px; gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) { button { transition: none; } }
