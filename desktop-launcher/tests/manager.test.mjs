@@ -74,7 +74,7 @@ test('stored runtime paths cannot escape the owned versions directory', async t 
   await assert.rejects(manager.initialize(), { code: 'state' });
 });
 
-async function runningFixture(t, occupied = false) {
+async function runningFixture(t, occupied = false, incompatible = false) {
   const manager = await fixture(t);
   const { createServer } = await import('node:net');
   const server = createServer();
@@ -91,8 +91,10 @@ async function runningFixture(t, occupied = false) {
   await writeFile(join(root, 'package.json'), '{"type":"module"}');
   await writeFile(join(root, 'node_modules/tsx/package.json'), '{"type":"module","exports":{"./esm":"./noop.mjs"}}');
   await writeFile(join(root, 'node_modules/tsx/noop.mjs'), '');
-  await writeFile(join(root, 'apps/cli/src/bin.ts'), `import { createServer } from 'node:http'; process.stderr.write('warning without newline'); const server = createServer((req,res) => res.end('fixture')); server.listen(Number(process.argv[process.argv.indexOf('--port') + 1]), '127.0.0.1', () => console.log('dsh web: http://127.0.0.1:' + server.address().port + '/?token=fixture'));`);
-  await manager.exclusive(() => manager.start());
+  await writeFile(join(root, 'apps/cli/src/bin.ts'), `import { createServer } from 'node:http'; process.stderr.write('warning without newline'); const server = createServer((req,res) => res.end('fixture')); server.listen(Number(process.argv[process.argv.indexOf('--port') + 1]), '127.0.0.1', () => console.log('dsh web: ${incompatible ? 'https' : 'http'}://127.0.0.1:' + server.address().port + '/?token=fixture'));`);
+  if (incompatible) {
+    await assert.rejects(manager.exclusive(() => manager.start()), { code: 'readyAddress' });
+  } else await manager.exclusive(() => manager.start());
   return manager;
 }
 test('partial stderr cannot hide stdout readiness and an intentional stop is not a crash', { timeout: 10000 }, async t => {
@@ -126,4 +128,11 @@ test('occupied preferred port uses an OS-assigned port without replacing the sav
   assert.notEqual(manager.snapshot().actualPort, preferred);
   assert.equal(manager.settings.port, preferred);
   assert.equal(await (await fetch(manager.url)).text(), 'fixture');
+});
+
+test('incompatible readiness fails promptly and stops the child service', { timeout: 10000 }, async t => {
+  const manager = await runningFixture(t, false, true);
+  assert.equal(manager.service, null);
+  assert.equal(manager.url, null);
+  assert.equal(manager.snapshot().running, false);
 });

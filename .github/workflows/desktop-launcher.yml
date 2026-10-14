@@ -1,0 +1,77 @@
+name: Independent desktop launcher
+on:
+  pull_request:
+    paths: ['desktop-launcher/**', '.github/workflows/desktop-launcher.yml']
+  push:
+    branches: [master]
+    paths: ['desktop-launcher/**', '.github/workflows/desktop-launcher.yml']
+  workflow_dispatch:
+    inputs:
+      windows_installer:
+        description: Build and verify the complete Windows installer
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  checks:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: desktop-launcher
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24.14.1'
+          cache: npm
+          cache-dependency-path: desktop-launcher/package-lock.json
+      - run: npm ci --registry=https://registry.npmjs.org
+      - run: npm run check
+      - name: Parse Windows bootstrap
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'windows/Build-Windows.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count) { throw ($errors | Out-String) }
+      - run: node node_modules/electron/install.js
+      - run: npm run test:import
+      - run: npm run export:windows
+  windows-installer:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_installer
+    runs-on: windows-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: desktop-launcher
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24.14.1'
+      - run: npm ci --registry=https://registry.npmjs.org
+      - name: Export and build the kit
+        shell: pwsh
+        run: |
+          $result = & node scripts/create-windows-kit.mjs --directory
+          if ($LASTEXITCODE -ne 0) { throw 'Kit export failed' }
+          $line = @($result | Where-Object { $_ -like 'WINDOWS_BUILD_DIRECTORY: *' })
+          if ($line.Count -ne 1) { throw 'Kit location missing' }
+          $kit = $line[0].Substring('WINDOWS_BUILD_DIRECTORY: '.Length)
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $kit 'Build-Windows.ps1')
+          if ($LASTEXITCODE -ne 0) { throw "Build failed: $kit" }
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: windows-installer-and-logs
+          include-hidden-files: true
+          path: |
+            desktop-launcher/.cache/windows-kit-*/DSH-Launcher-*/BUILD-SUCCESS.txt
+            desktop-launcher/.cache/windows-kit-*/DSH-Launcher-*/build-windows.log
+            desktop-launcher/.cache/windows-kit-*/DSH-Launcher-*/desktop-launcher/.cache/dist/*Setup.exe
+            desktop-launcher/.cache/windows-kit-*/DSH-Launcher-*/desktop-launcher/.cache/*.log

@@ -23,4 +23,4 @@ DSH Launcher 0.1.9 - Windows x64 一键构建包
 
 不要删除 .cache\dist\win-unpacked 中的部分文件后单独移动 EXE。分发给其他电脑时使用最终生成的 Setup.exe。
 
-源码构建完成、安装包阶段失败时，可运行 Continue-Packaging.cmd：复用现有依赖和运行包，显式安装 Electron，重新运行测试、打包并检查成品。缺少运行包时请运行 Build-Windows.cmd。
+源码构建完成、安装包阶段失败时，可运行 Continue-Packaging.cmd：复用现有依赖和运行包，显式安装 Electron，重新运行测试、打包并检查成品。续跑会核对源码压缩包、清单、工具版本和启动器代码的构建记录；记录缺失或输入变化时请运行 Build-Windows.cmd，下载缓存仍会保留。旧运行包没有该记录时需要完整构建一次。

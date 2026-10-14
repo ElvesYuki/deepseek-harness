@@ -12,11 +12,10 @@ const repository = resolve(root, '..');
 const cache = join(root, '.cache');
 const stage = join(cache, 'payload-staging');
 const target = join(cache, 'payload');
-const gitRelease = 'v2.53.0-4';
-const gitName = `dugite-native-v2.53.0-4098283-macOS-${process.arch}.tar.gz`;
-const gitHashes = { arm64: 'f9dc64635a5b62fbd7ad95db73268bbb8912255ac516d65d37bf7af22fcb8ffe',
-  x64: 'ae6686718aa34f4140424db16b92a47dcffd6d1f312eb8b5f3b267f7404e2680' };
-const nodeVersion = '24.14.1';
+const pins = JSON.parse(await readFile(join(root, 'toolchain.json'), 'utf8'));
+const { gitRelease, nodeVersion } = pins;
+const gitName = `${pins.gitArchivePrefix}-macOS-${process.arch}.tar.gz`;
+const gitHash = pins.gitHashes[`darwin-${process.arch}`];
 const abort = new AbortController();
 process.once('SIGINT', () => abort.abort());
 process.once('SIGTERM', () => abort.abort());
@@ -35,7 +34,7 @@ async function verify(path, expected, algorithm = 'sha256', encoding = 'hex') {
   if (digest !== expected) throw new Error(`Integrity mismatch: ${path}. Remove the cached file and retry.`);
 }
 async function main() {
-  if (process.platform !== 'darwin' || !gitHashes[process.arch]) throw new Error('Payload preparation requires macOS arm64 or x64.');
+  if (process.platform !== 'darwin' || !gitHash) throw new Error('Payload preparation requires macOS arm64 or x64.');
   await mkdir(cache, { recursive: true });
   const lock = await open(join(cache, 'prepare.lock'), 'wx');
   try {
@@ -56,7 +55,7 @@ async function main() {
     await verify(join(cache, nodeName), hash);
     await command('/usr/bin/tar', ['-xzf', join(cache, nodeName), '--strip-components=1', '-C', join(stage, 'node')]);
     await download(`https://github.com/desktop/dugite-native/releases/download/${gitRelease}/${gitName}`, join(cache, gitName));
-    await verify(join(cache, gitName), gitHashes[process.arch]);
+    await verify(join(cache, gitName), gitHash);
     await command('/usr/bin/tar', ['-xzf', join(cache, gitName), '-C', join(stage, 'git')]);
     const metadata = join(cache, `pnpm-${pnpmVersion}.json`);
     await download(`https://registry.npmjs.org/pnpm/${pnpmVersion}`, metadata);
@@ -91,7 +90,7 @@ async function main() {
     await access(join(stage, 'dsh/apps/web/dist/index.html'));
     await writeFile(join(stage, 'manifest.json'), JSON.stringify({ version: manifest.version, commit,
       packageManager: manifest.packageManager, nodeVersion, platform: process.platform, arch: process.arch,
-      gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHashes[process.arch] }, null, 2) + '\n');
+      gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHash }, null, 2) + '\n');
     await rm(target + '.previous', { recursive: true, force: true });
     try { await rename(target, target + '.previous'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     await rename(stage, target);

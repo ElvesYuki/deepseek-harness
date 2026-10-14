@@ -14,11 +14,12 @@ export const zh = {
   updateHint: '准备新版时旧服务可继续运行。切换会停止任务并备份数据；失败后不自动降级会话。',
   proxyTitle: '代理设置', proxy: '代理地址（留空为直连）', proxyUpdates: 'GitHub 和依赖下载', proxyService: '模型与服务请求',
   proxyBrowser: '工作区页面网络', actualPort: '实际端口：', autoPort: '（首选端口被占用，已自动切换）', port: '首选端口（占用时自动切换）', save: '保存设置', testProxy: '测试 GitHub 连接',
-  proxyHint: '支持无认证 HTTP / HTTPS 代理。本地地址始终直连；服务代理保存后需重启。端口修改前请停止服务。',
+  proxyHint: '模型 API Key 请在工作区的模型设置中配置，不会自动继承终端密钥。支持无认证 HTTP / HTTPS 代理。本地地址始终直连；服务代理保存后需重启。端口修改前请停止服务。',
   logs: '运行日志', logHint: '最近 300 条 · 完整日志位于数据目录', saved: '设置已保存。服务代理在下次启动时生效。',
   connected: 'GitHub 连接成功。', noRelease: '尚未检查更新', noVersion: '等待准备内置版本', version: '当前版本：', latest: '最新发布：',
   phase: { importing: '正在导入数据', idle: '准备启动', preparing: '正在释放内置版本', starting: '服务启动中', running: '服务运行中', stopped: '服务已停止', stopping: '正在停止服务', fetching: '正在下载官方源码', building: '正在安装依赖并构建', backup: '正在备份数据' },
   errors: {
+    readyAddress: '服务返回了不兼容的访问地址。请检查导入配置中的 publicUrl 或 TLS 设置；客户端需要本机 HTTP 地址。',
     importBrowser: '数据已导入并备份，但工作区缓存清理失败。请重新打开客户端后启动服务。',
     importSource: '目录不可读取或不是 DSH 数据目录，或与客户端数据目录重叠。请选择包含 sessions、storages 或 profiles 的目录。',
     importLinks: '已跳过旧运行依赖，但数据中仍有无法导入的链接或特殊文件。请检查下方路径；原数据保持不变。',

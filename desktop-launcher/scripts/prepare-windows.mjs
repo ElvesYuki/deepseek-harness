@@ -5,13 +5,15 @@ import { dirname, join, resolve } from 'node:path';
 import { run } from '../src/process.mjs';
 import { childEnvironment, DEFAULTS } from '../src/core.mjs';
 import { toolPaths } from '../src/platform.mjs';
+import { recordBuild } from './build-state.mjs';
 import { sealRuntimeLinks } from '../src/runtime-links.mjs';
 
 const root = resolve(import.meta.dirname, '..'), kit = resolve(root, '..');
 const cache = join(root, '.cache'), stage = join(cache, 'payload-staging'), target = join(cache, 'payload');
-const gitRelease = 'v2.53.0-4', gitName = 'dugite-native-v2.53.0-4098283-windows-x64.tar.gz';
-const gitHash = '7b76bc5c32c0d7c5984efdc2a8a32697cf1e8a43bc55176fbf9869c0ee995130';
-const nodeVersion = '24.14.1';
+const pins = JSON.parse(await readFile(join(root, 'toolchain.json'), 'utf8'));
+const { gitRelease, nodeVersion } = pins;
+const gitName = `${pins.gitArchivePrefix}-windows-x64.tar.gz`;
+const gitHash = pins.gitHashes['win32-x64'];
 const output = text => process.stdout.write(text);
 const abort = new AbortController();
 process.once('SIGINT', () => abort.abort()); process.once('SIGTERM', () => abort.abort());
@@ -69,6 +71,7 @@ async function main() {
     await writeFile(join(stage, 'manifest.json'), JSON.stringify({ version: manifest.version, commit: snapshot.commit,
       packageManager: manifest.packageManager, nodeVersion, platform: 'win32', arch: 'x64',
       gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHash }, null, 2) + '\n');
+    await recordBuild(root, stage);
     await rm(target + '.previous', { recursive: true, force: true });
     try { await rename(target, target + '.previous'); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     await rename(stage, target);

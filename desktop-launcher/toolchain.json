@@ -1,0 +1,11 @@
+{
+  "nodeVersion": "24.14.1",
+  "windowsNodeSha256": "6e50ce5498c0cebc20fd39ab3ff5df836ed2f8a31aa093cecad8497cff126d70",
+  "gitRelease": "v2.53.0-4",
+  "gitArchivePrefix": "dugite-native-v2.53.0-4098283",
+  "gitHashes": {
+    "darwin-arm64": "f9dc64635a5b62fbd7ad95db73268bbb8912255ac516d65d37bf7af22fcb8ffe",
+    "darwin-x64": "ae6686718aa34f4140424db16b92a47dcffd6d1f312eb8b5f3b267f7404e2680",
+    "win32-x64": "7b76bc5c32c0d7c5984efdc2a8a32697cf1e8a43bc55176fbf9869c0ee995130"
+  }
+}

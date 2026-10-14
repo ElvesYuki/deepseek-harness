@@ -9,6 +9,7 @@ import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { DEFAULTS, UPSTREAM, LauncherError, childEnvironment, loadJson, saveJson, validateSettings, releaseTag } from './core.mjs';
+import { readyUrl } from './readiness.mjs';
 import { launch, run } from './process.mjs';
 import semver from 'semver';
 import { createRequire } from 'node:module';
@@ -117,8 +118,8 @@ export class Manager {
     this.phase = 'starting'; this.emit();
     const root = this.directory(this.registry.active);
     const buffers = { stdout: '', stderr: '' };
-    let resolveReady;
-    const ready = new Promise(resolve => { resolveReady = resolve; });
+    let resolveReady, rejectReady;
+    const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
     const workspace = join(this.root, 'workspace');
     await mkdir(workspace, { recursive: true });
     const tsx = createRequire(join(root, 'package.json')).resolve('tsx/esm');
@@ -128,10 +129,9 @@ export class Manager {
       buffers[channel] += chunk;
       const lines = buffers[channel].split(/\r?\n/); buffers[channel] = lines.pop().slice(-16384);
       for (const line of lines) {
-        const match = line.replace(/\x1b\[[0-9;]*m/g, '').match(/^dsh web: (http:\/\/127\.0\.0\.1:\d+\/\S*)\s*$/);
-        if (match && channel === 'stdout') {
-          const url = new URL(match[1]);
-          if (Number(url.port) > 0 && (port === 0 || url.port === String(port))) resolveReady(url.href);
+        if (channel === 'stdout') {
+          try { const url = readyUrl(line, port); if (url) resolveReady(url); }
+          catch (error) { rejectReady(error); }
         }
         this.log(line);
       }

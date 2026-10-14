@@ -26,11 +26,12 @@ test('release selection ignores drafts, other product tags and option-like input
 });
 test('child proxies are scoped, loopback bypassed and inherited credentials removed', () => {
   const paths = { nodeBin: '/node', gitBin: '/git', gitExec: '/exec', home: '/home' };
-  const base = { PATH: '/bin', API_KEY: 'secret', GITHUB_TOKEN: 'secret', HTTPS_PROXY: 'http://old', NODE_OPTIONS: '--inspect' };
+  const base = { PATH: '/bin', API_KEY: 'secret', DEEPSEEK_API_KEY: 'secret', GITHUB_TOKEN: 'secret', HTTPS_PROXY: 'http://old', NODE_OPTIONS: '--inspect' };
   const config = { ...DEFAULTS, proxy: 'http://localhost:7890', proxyService: false };
   const update = childEnvironment(base, config, 'update', paths);
   assert.equal(update.HTTPS_PROXY, config.proxy);
   assert.equal(update.API_KEY, undefined);
+  assert.equal(childEnvironment(base, config, 'service', paths).DEEPSEEK_API_KEY, undefined);
   assert.equal(update.GITHUB_TOKEN, undefined);
   assert.equal(update.NODE_OPTIONS, undefined);
   assert.equal(update.CI, 'true');

@@ -56,13 +56,15 @@ try {
             $env:npm_config_proxy = $proxy; $env:npm_config_https_proxy = $proxy
         }
     }
-    Write-Host '1/7 Preparing private Node.js 24.14.1 (no system installation changes)...'
-    $archive = Join-Path $cache 'node-v24.14.1-win-x64.zip'
-    Download-Checked 'https://nodejs.org/dist/v24.14.1/node-v24.14.1-win-x64.zip' $archive '6e50ce5498c0cebc20fd39ab3ff5df836ed2f8a31aa093cecad8497cff126d70'
+    $pins = Get-Content -LiteralPath (Join-Path $launcher 'toolchain.json') -Raw | ConvertFrom-Json
+    $nodeVersion = $pins.nodeVersion
+    Write-Host "1/7 Preparing private Node.js $nodeVersion (no system installation changes)..."
+    $archive = Join-Path $cache "node-v$nodeVersion-win-x64.zip"
+    Download-Checked "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip" $archive $pins.windowsNodeSha256
     $bootstrap = Join-Path $cache 'bootstrap'
     New-Item -ItemType Directory -Force -Path $bootstrap | Out-Null
     Run-Checked (Join-Path $env:SystemRoot 'System32\tar.exe') @('-xf', $archive, '-C', $bootstrap)
-    $nodeHome = Join-Path $bootstrap 'node-v24.14.1-win-x64'
+    $nodeHome = Join-Path $bootstrap "node-v$nodeVersion-win-x64"
     $node = Join-Path $nodeHome 'node.exe'
     $npm = Join-Path $nodeHome 'node_modules\npm\bin\npm-cli.js'
     $env:PATH = "$nodeHome;$env:PATH"
@@ -78,6 +80,7 @@ try {
     Write-Host '2/7 Installing launcher build dependencies...'
     if ($ResumePackaging) {
         if (-not (Test-Path -LiteralPath (Join-Path $launcher 'node_modules/electron/install.js'))) { throw 'Missing build dependencies. Run Build-Windows.cmd first.' }
+        Run-Checked $node @('scripts/build-state.mjs')
         Run-Checked $node @('scripts/verify-payload.mjs', 'win32')
         Write-Host 'Reusing installed dependencies and the completed payload.'
     } else {
@@ -87,7 +90,7 @@ try {
     Run-Checked $node @('node_modules/electron/install.js')
     if (-not (Test-Path -LiteralPath (Join-Path $launcher 'node_modules/electron/dist/electron.exe'))) { throw 'Electron installation did not produce electron.exe.' }
     Write-Host '3/7 Running Windows lifecycle and data tests...'
-    Run-Checked $node @($npm, 'test')
+    Run-Checked $node @($npm, 'run', 'check')
     Write-Host '4/7 Building offline DSH payload (this can take a while)...'
     if ($ResumePackaging) { Write-Host 'Reusing completed payload; source build skipped.' }
     else { Run-Checked $node @('scripts/prepare-windows.mjs') }
@@ -99,9 +102,9 @@ try {
     $app = Join-Path $cache 'dist\win-unpacked\DSH Launcher.exe'
     Run-Smoke $app @('--smoke-workspace', '--smoke-occupied') 'ELECTRON_OCCUPIED_PORT_SMOKE_OK' 'packaged-port'
     Run-Smoke $app @('--smoke', '--smoke-import') 'LAUNCHER_IMPORT_SMOKE_OK' 'packaged-import'
-    $installers = @(Get-ChildItem -LiteralPath (Join-Path $cache 'dist') -Filter 'DSH-Launcher-*-Windows-x64-Setup.exe')
-    if ($installers.Count -ne 1) { throw 'Expected one Windows installer in .cache\dist.' }
-    $installer = $installers[0].FullName
+    $package = Get-Content -LiteralPath (Join-Path $launcher 'package.json') -Raw | ConvertFrom-Json
+    $installer = Join-Path $cache "dist\DSH-Launcher-$($package.version)-Windows-x64-Setup.exe"
+    if (-not (Test-Path -LiteralPath $installer)) { throw "Expected installer missing: $installer" }
     $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
     "Installer: $installer`r`nSHA256: $hash`r`nUnsigned Windows x64; runtime and packaged smoke checks passed." | Set-Content -LiteralPath $success -Encoding UTF8
     Write-Host "SUCCESS: $installer" -ForegroundColor Green
