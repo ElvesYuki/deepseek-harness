@@ -1,0 +1,31 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write desktop-launcher/README.md
+/personal-dsh-launcher:
+  en: 18de3f118d679c53
+  zh: 2fdc2fd651b265c6
+/personal-dsh-launcher/summary:
+  en: e4fb4c10d4e36a20
+  zh: f6c0ab9536433b3f
+/personal-dsh-launcher/contents:
+  en: 4ad8927f5bb23905
+  zh: ac7cd178694b8d12
+/personal-dsh-launcher/build-and-run-build-and-run:
+  en: e68247640f662018
+  zh: 48d80c5d7e892ece
+/personal-dsh-launcher/build-and-run-build-and-run/windows-build-kit:
+  en: cb7953eeb9ce918b
+  zh: 3ef6eaf7bf3e4994
+/personal-dsh-launcher/use-the-launcher-use-the-launcher:
+  en: 2305de6d79968744
+  zh: 2a59f498a08ce3fe
+/personal-dsh-launcher/updates-and-recovery-updates-and-recovery:
+  en: 5c1aa6f6adb2caab
+  zh: 32fb72b6ceba70bf
+/personal-dsh-launcher/development-and-checks-development-and-checks:
+  en: 9b9da3e9d943b231
+  zh: f7abe965b884518c
+/personal-dsh-launcher/limitations-limitations:
+  en: 11193647f9af5fe3
+  zh: d89c10b8812768d7

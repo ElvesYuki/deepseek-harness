@@ -1,0 +1,7 @@
+node_modules/
+payload/
+payload-staging/
+payload.previous/
+.cache/
+dist/
+test-results/

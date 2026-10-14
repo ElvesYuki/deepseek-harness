@@ -1,0 +1,81 @@
+{
+  "name": "personal-dsh-launcher",
+  "version": "0.1.9",
+  "private": true,
+  "type": "module",
+  "main": "src/main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test --test-reporter=tap tests/*.test.mjs",
+    "prepare:payload": "node scripts/prepare-payload.mjs",
+    "package:mac": "node scripts/verify-payload.mjs darwin && electron-builder --mac dmg --arm64",
+    "package:dir": "node scripts/verify-payload.mjs darwin && electron-builder --mac --arm64 --dir",
+    "test:ui": "electron . --smoke",
+    "test:import": "electron . --smoke --smoke-import",
+    "test:runtime": "node scripts/smoke-runtime.mjs",
+    "test:desktop": "electron . --smoke-workspace",
+    "test:update": "node scripts/smoke-update.mjs",
+    "test:occupied": "electron . --smoke-workspace --smoke-occupied",
+    "prepare:windows": "node scripts/prepare-windows.mjs",
+    "package:win": "node scripts/verify-payload.mjs win32 && electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {
+    "semver": "7.8.5"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.17.0"
+  },
+  "build": {
+    "appId": "local.personal.dsh-launcher",
+    "productName": "DSH Launcher",
+    "directories": {
+      "output": ".cache/dist"
+    },
+    "files": [
+      "src/**",
+      "ui/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": ".cache/payload",
+        "to": "payload",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "identity": null
+    },
+    "dmg": {
+      "title": "DSH Launcher"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "DSH-Launcher-${version}-Windows-${arch}-Setup.${ext}",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": false
+    }
+  },
+  "description": "Independent Electron launcher for DeepSeek Harness",
+  "author": "Personal DSH Launcher contributors",
+  "packageManager": "npm@11.11.0",
+  "workspaces": []
+}
