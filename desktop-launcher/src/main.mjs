@@ -75,7 +75,7 @@ async function showWorkspace() {
     workspace.webContents.on('will-navigate', (event, url) => {
       if (new URL(url).origin !== (manager.url ? new URL(manager.url).origin : null)) { event.preventDefault(); if (/^https?:\/\//.test(url)) void shell.openExternal(url); }
     });
-    workspace.on('closed', () => { workspace = null; window?.show(); });
+    workspace.on('closed', () => { workspace = null; if (window && !window.isDestroyed()) window.show(); });
     workspace.webContents.on('render-process-gone', () => { log('Workspace renderer exited; reopen the workspace.'); });
   }
   const currentUrl = workspace.webContents.getURL();
@@ -148,7 +148,7 @@ async function main() {
     catch (error) { log(error.message); return { ok: false, code: error instanceof LauncherError ? error.code : 'unexpected', path: error instanceof LauncherError && error.code === 'importLinks' ? error.relativePath : undefined }; }
   });
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: 'DSH Launcher', submenu: [{ label: copy.manage, click: () => { window.show(); window.focus(); } }, { type: 'separator' }, { role: 'quit' }] },
+    { label: 'DSH Launcher', submenu: [{ label: copy.manage, click: () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } } }, { type: 'separator' }, { role: 'quit' }] },
     { role: 'editMenu' }, { role: 'windowMenu' },
   ]));
   await window.loadFile(join(base, 'ui/index.html'));
@@ -258,7 +258,7 @@ async function main() {
 }
 if (!owns) app.quit();
 else {
-  app.on('second-instance', () => { window?.show(); window?.focus(); });
+  app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
   app.on('before-quit', event => {
     if (allowedQuit) return;
     event.preventDefault();

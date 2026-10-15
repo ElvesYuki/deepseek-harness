@@ -34,8 +34,11 @@ function Run-Smoke([string]$App, [string[]]$Arguments, [string]$Marker, [string]
         throw "Packaged smoke timed out: $Name"
     }
     $child.Refresh()
-    if ($child.ExitCode -ne 0 -or -not (Select-String -LiteralPath $out -SimpleMatch $Marker -Quiet)) {
-        throw "Packaged smoke failed: $Name. See $out and $err"
+    $markerFound = [bool](Select-String -LiteralPath $out -SimpleMatch $Marker -Quiet)
+    # Windows PowerShell 5.1 exposes no ExitCode for a Start-Process -PassThru child, so the smoke's
+    # own success marker is authoritative; a known nonzero exit code still fails.
+    if (-not $markerFound -or ($null -ne $child.ExitCode -and $child.ExitCode -ne 0)) {
+        throw "Packaged smoke failed: $Name. exitCode=$($child.ExitCode) markerFound=$markerFound See $out and $err"
     }
 }
 try {
