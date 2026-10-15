@@ -1,4 +1,4 @@
-DSH Launcher 0.1.9 - Windows x64 一键构建包
+DSH Launcher 0.1.10 - Windows x64 一键构建包
 
 这是构建包，不是已生成的安装程序。当前没有连接 Windows 构建机；Windows 上的真实构建与验证由下面的脚本执行。
 
@@ -6,7 +6,7 @@ DSH Launcher 0.1.9 - Windows x64 一键构建包
 2. 使用 Windows 10/11 的 Intel/AMD 64 位电脑，建议 16 GB 内存和 30 GB 可用空间。
 3. 如需代理，在 proxy.txt 中写一行，例如 http://127.0.0.1:7890。留空使用当前环境的网络设置；代理只作用于本次构建。
 4. 双击 Build-Windows.cmd，保持终端打开。首次构建需要联网下载 Node、Git、pnpm、Electron 和项目依赖。
-5. 成功后出现 BUILD-SUCCESS.txt。安装程序位于 desktop-launcher\.cache\dist\DSH-Launcher-0.1.9-Windows-x64-Setup.exe。
+5. 成功后出现 BUILD-SUCCESS.txt。安装程序位于 desktop-launcher\.cache\dist\DSH-Launcher-0.1.10-Windows-x64-Setup.exe。
 
 构建会校验下载文件、运行单元测试、验证内置服务启动/停止、打包，再验证安装包内的应用、端口占用切换和数据导入。任一步失败都不会生成成功记录。若原生依赖缺少预编译文件并要求 C++ 编译器，需要按错误信息安装对应构建工具。
 

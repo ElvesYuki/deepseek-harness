@@ -26,7 +26,7 @@ function publish() {
   if (publishTimer) return;
   publishTimer = setTimeout(() => {
     publishTimer = undefined;
-    if (window && !window.isDestroyed()) window.webContents.send('launcher:state', { ...manager.snapshot(), latest, logs });
+    if (window && !window.isDestroyed()) window.webContents.send('launcher:state', { ...manager.snapshot(), latest, logs, launcherVersion: app.getVersion() });
   }, 80);
   publishTimer.unref();
 }
@@ -93,7 +93,7 @@ function assertSender(event) {
 }
 async function action(name, value) {
   switch (name) {
-    case 'state': return { ...manager.snapshot(), latest, logs };
+    case 'state': return { ...manager.snapshot(), latest, logs, launcherVersion: app.getVersion() };
     case 'data': await shell.openPath(root); return;
     case 'release': if (latest) await shell.openExternal(latest.url); return;
     case 'cancel': manager.controller?.abort(); return;

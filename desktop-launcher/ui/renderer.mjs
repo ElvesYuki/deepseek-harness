@@ -37,6 +37,7 @@ $('resetSettings').addEventListener('click', () => {
 });
 function render(next) {
   currentState = next;
+  $('launcherVersion').textContent = `v${next.launcherVersion}`;
   document.querySelector('.hero').dataset.status = next.failure ? 'error' : next.busy ? 'busy' : next.running ? 'running' : 'idle';
   $('port').disabled = next.running || next.busy;
   document.querySelector('[data-action=start]').classList.toggle('primary', !next.running);
