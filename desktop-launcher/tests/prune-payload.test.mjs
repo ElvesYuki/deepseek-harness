@@ -21,13 +21,15 @@ test('pruning drops source maps and repository-only trees while keeping skills',
   }
   await writeFile(join(root, 'packages/core/lib/index.js'), 'code');
   await writeFile(join(root, 'packages/core/lib/index.js.map'), 'map');
+  await writeFile(join(root, 'packages/core/lib/.gitkeep'), '');
   await writeFile(join(root, '.agents/notes/archived/note.md'), 'note');
   await writeFile(join(root, '.agents/skills/dsh-doc/SKILL.md'), 'skill');
   await writeFile(join(root, 'snapshots/session/case.jsonl'), 'case');
   await writeFile(join(root, 'docs/guide.md'), 'guide');
   const result = await prunePayload(root);
-  assert.equal(result.files, 3);
+  assert.equal(result.files, 4);
   assert.equal(await exists(join(root, 'packages/core/lib/index.js.map')), false);
+  assert.equal(await exists(join(root, 'packages/core/lib/.gitkeep')), false);
   assert.equal(await exists(join(root, '.agents/notes')), false);
   assert.equal(await exists(join(root, 'snapshots')), false);
   assert.equal(await exists(join(root, 'packages/core/lib/index.js')), true);

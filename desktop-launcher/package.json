@@ -17,7 +17,7 @@
     "test:update": "node scripts/smoke-update.mjs",
     "test:occupied": "electron . --smoke-workspace --smoke-occupied",
     "prepare:windows": "node scripts/prepare-windows.mjs",
-    "package:win": "node scripts/verify-payload.mjs win32 && electron-builder --win nsis --x64 --publish never",
+    "package:win": "node scripts/verify-payload.mjs win32 && electron-builder --win nsis --x64 --publish never && node scripts/verify-installer.mjs",
     "lint": "oxlint --config oxlint.launcher.json src scripts tests ui",
     "check": "npm run lint && npm test",
     "export:windows": "node scripts/create-windows-kit.mjs --directory",

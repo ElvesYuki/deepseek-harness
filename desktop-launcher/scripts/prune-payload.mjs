@@ -9,6 +9,10 @@ const ROOT_DIRECTORIES = ['.agents/notes', 'snapshots'];
 // Debugger input. The served runtime resolves modules from lib/ and never opens a map.
 const FILE_EXTENSION = '.map';
 
+// Packaging drops git placeholders anyway, which would make the packaged file count differ from the
+// count this build records. Removing them here keeps the recorded count exact.
+const FILE_NAMES = new Set(['.gitkeep']);
+
 /**
  * Measure one path without following links, so a linked directory cannot pull outside the payload.
  * @param path - absolute path to measure.
@@ -47,7 +51,7 @@ export async function prunePayload(root) {
     for (const entry of await readdir(folder, { withFileTypes: true })) {
       const path = join(folder, entry.name);
       if (entry.isDirectory()) { await walk(path); continue; }
-      if (!entry.isFile() || !entry.name.endsWith(FILE_EXTENSION)) continue;
+      if (!entry.isFile() || (!entry.name.endsWith(FILE_EXTENSION) && !FILE_NAMES.has(entry.name))) continue;
       bytes += (await stat(path)).size;
       await unlink(path);
       files += 1;
