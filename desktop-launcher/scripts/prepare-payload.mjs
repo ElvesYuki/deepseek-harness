@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { run } from '../src/process.mjs';
 import { childEnvironment, DEFAULTS } from '../src/core.mjs';
 import { prunePayload } from './prune-payload.mjs';
+import { countPayloadFiles } from './payload-files.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repository = resolve(root, '..');
@@ -91,8 +92,10 @@ async function main() {
     await access(join(stage, 'dsh/apps/web/dist/index.html'));
     const pruned = await prunePayload(join(stage, 'dsh'));
     console.log(`Pruned payload content: ${pruned.files} files, ${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB`);
+    const payloadFiles = await countPayloadFiles(join(stage, 'dsh'));
     await writeFile(join(stage, 'manifest.json'), JSON.stringify({ version: manifest.version, commit,
       packageManager: manifest.packageManager, nodeVersion, platform: process.platform, arch: process.arch,
+      files: payloadFiles,
       gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHash }, null, 2) + '\n');
     await rm(target + '.previous', { recursive: true, force: true });
     try { await rename(target, target + '.previous'); } catch (error) { if (error.code !== 'ENOENT') throw error; }

@@ -20,6 +20,7 @@ export const zh = {
   phase: { importing: '正在导入数据', idle: '准备启动', preparing: '正在释放内置版本', starting: '服务启动中', running: '服务运行中', stopped: '服务已停止', stopping: '正在停止服务', fetching: '正在下载官方源码', building: '正在安装依赖并构建', backup: '正在备份数据' },
   errors: {
     readyAddress: '服务返回了不兼容的访问地址。请检查导入配置中的 publicUrl 或 TLS 设置；客户端需要本机 HTTP 地址。',
+    payloadIncomplete: '内置载荷文件不完整：安装或首次释放时有文件被跳过，部分功能可能不可用。建议重新运行安装程序。',
     importBrowser: '数据已导入并备份，但工作区缓存清理失败。请重新打开客户端后启动服务。',
     importSource: '目录不可读取或不是 DSH 数据目录，或与客户端数据目录重叠。请选择包含 sessions、storages 或 profiles 的目录。',
     importLinks: '已跳过旧运行依赖，但数据中仍有无法导入的链接或特殊文件。请检查下方路径；原数据保持不变。',

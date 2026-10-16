@@ -7,6 +7,7 @@ import { childEnvironment, DEFAULTS } from '../src/core.mjs';
 import { toolPaths } from '../src/platform.mjs';
 import { recordBuild } from './build-state.mjs';
 import { prunePayload } from './prune-payload.mjs';
+import { countPayloadFiles } from './payload-files.mjs';
 import { sealRuntimeLinks } from '../src/runtime-links.mjs';
 
 const root = resolve(import.meta.dirname, '..'), kit = resolve(root, '..');
@@ -72,8 +73,12 @@ async function main() {
     await sealRuntimeLinks(join(stage, 'dsh'));
     const pruned = await prunePayload(join(stage, 'dsh'));
     console.log(`Pruned payload content: ${pruned.files} files, ${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB`);
+    // Recorded here and re-checked at materialization, so a payload that loses files in between is
+    // reported instead of serving a partially broken install.
+    const payloadFiles = await countPayloadFiles(join(stage, 'dsh'));
     await writeFile(join(stage, 'manifest.json'), JSON.stringify({ version: manifest.version, commit: snapshot.commit,
       packageManager: manifest.packageManager, nodeVersion, platform: 'win32', arch: 'x64',
+      files: payloadFiles,
       gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHash }, null, 2) + '\n');
     await recordBuild(root, stage);
     await rm(target + '.previous', { recursive: true, force: true });

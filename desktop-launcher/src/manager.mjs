@@ -59,6 +59,7 @@ export class Manager {
     await this.sweepStaging();
     await recoverImport(this);
     await this.discoverData();
+    if (this.registry.active?.verified === false) this.failure = 'payloadIncomplete';
     if (this.registry.recoveryRequired) this.failure = 'recovery';
     this.emit();
   }
@@ -120,6 +121,11 @@ export class Manager {
     const materialized = await materializeTree(join(this.payload, 'dsh'), staging);
     this.log(`Materialized ${materialized.files} files (${materialized.linked} linked, ${materialized.copied} copied`
       + `${materialized.fallback ? `, ${materialized.fallback} forced copies` : ''})`);
+    // The build recorded the payload's file count; a payload that lost files before materialization
+    // (a dropped extraction, a partial copy) is reported rather than served.
+    const verified = typeof manifest.files !== 'number' || manifest.files === materialized.files;
+    if (!verified) this.log(`Payload holds ${materialized.files} files but the build recorded ${manifest.files}`);
+    active.files = materialized.files; active.verified = verified;
     // A scanner can hold a handle inside the freshly written tree; the refusal clears on its own.
     await retryOnBusy(() => rename(staging, this.directory(active)));
     await restoreRuntimeLinks(this.directory(active));
