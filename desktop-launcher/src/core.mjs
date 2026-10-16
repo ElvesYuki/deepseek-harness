@@ -2,6 +2,7 @@
 import { readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 export const UPSTREAM = 'https://github.com/deepseek-ai/deepseek-harness.git';
 export const RELEASES = 'https://api.github.com/repos/deepseek-ai/deepseek-harness/releases?per_page=30';
@@ -43,6 +44,22 @@ export async function loadJson(path, fallback) {
   try { raw = await readFile(path, 'utf8'); }
   catch (error) { if (error.code === 'ENOENT') return fallback; throw error; }
   try { return JSON.parse(raw); } catch (cause) { throw new LauncherError('state', path, { cause }); }
+}
+
+/**
+ * Retry an operation while a transient sharing refusal lasts.
+ * @param operation - the operation to attempt; retried only for the listed error codes.
+ * @param options - retry count, base delay, and the error codes treated as transient.
+ * @returns the resolved operation value.
+ */
+export async function retryOnBusy(operation, { attempts = 6, delayMs = 500, codes = ['EPERM', 'EACCES', 'EBUSY'] } = {}) {
+  for (let attempt = 1; ; attempt += 1) {
+    try { return await operation(); }
+    catch (error) {
+      if (attempt >= attempts || !codes.includes(error.code)) throw error;
+      await delay(delayMs * attempt);
+    }
+  }
 }
 
 /** Only release tags are accepted as Git input, never arbitrary refs or executable arguments. */

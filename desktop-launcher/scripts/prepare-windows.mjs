@@ -6,6 +6,7 @@ import { run } from '../src/process.mjs';
 import { childEnvironment, DEFAULTS } from '../src/core.mjs';
 import { toolPaths } from '../src/platform.mjs';
 import { recordBuild } from './build-state.mjs';
+import { prunePayload } from './prune-payload.mjs';
 import { sealRuntimeLinks } from '../src/runtime-links.mjs';
 
 const root = resolve(import.meta.dirname, '..'), kit = resolve(root, '..');
@@ -67,7 +68,10 @@ async function main() {
     await command(paths.node, [paths.pnpm, 'run', 'build'], join(stage, 'dsh'), env);
     await command(paths.node, ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--help'], join(stage, 'dsh'), env);
     await access(join(stage, 'dsh/apps/web/dist/index.html'));
+    // Sealing resolves link targets first, so pruning cannot leave a recorded target dangling.
     await sealRuntimeLinks(join(stage, 'dsh'));
+    const pruned = await prunePayload(join(stage, 'dsh'));
+    console.log(`Pruned payload content: ${pruned.files} files, ${(pruned.bytes / 1024 / 1024).toFixed(1)} MiB`);
     await writeFile(join(stage, 'manifest.json'), JSON.stringify({ version: manifest.version, commit: snapshot.commit,
       packageManager: manifest.packageManager, nodeVersion, platform: 'win32', arch: 'x64',
       gitSource: 'https://github.com/desktop/dugite-native', gitRelease, gitSha256: gitHash }, null, 2) + '\n');

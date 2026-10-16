@@ -1,14 +1,15 @@
 /** DSH runtime preparation, service ownership, and staged updates from the official repository. */
-import { access, cp, mkdir, readFile, rename } from 'node:fs/promises';
+import { access, cp, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { toolPaths } from './platform.mjs';
 import { restoreRuntimeLinks } from './runtime-links.mjs';
+import { materializeTree } from './materialize.mjs';
 import { homedir } from 'node:os';
 import { inspectHome, importHome, recoverImport } from './data-import.mjs';
 import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { DEFAULTS, UPSTREAM, LauncherError, childEnvironment, loadJson, saveJson, validateSettings, releaseTag } from './core.mjs';
+import { DEFAULTS, UPSTREAM, LauncherError, childEnvironment, loadJson, retryOnBusy, saveJson, validateSettings, releaseTag } from './core.mjs';
 import { readyUrl } from './readiness.mjs';
 import { launch, run } from './process.mjs';
 import semver from 'semver';
@@ -55,10 +56,26 @@ export class Manager {
     if (!this.registry || typeof this.registry !== 'object') throw new LauncherError('state');
     if (this.registry.active) this.directory(this.registry.active);
     if (this.registry.prepared) this.directory(this.registry.prepared);
+    await this.sweepStaging();
     await recoverImport(this);
     await this.discoverData();
     if (this.registry.recoveryRequired) this.failure = 'recovery';
     this.emit();
+  }
+  /**
+   * Delete interrupted materialization directories. initialize() runs only while this process owns the
+   * single-instance lock, so no other instance can be writing one; prepared update directories stay,
+   * because the registry references them.
+   */
+  async sweepStaging() {
+    const versions = join(this.root, 'versions');
+    let names;
+    try { names = await readdir(versions); }
+    catch (error) { if (error.code === 'ENOENT') return; throw error; }
+    for (const name of names) {
+      if (!name.startsWith('copy-')) continue;
+      await rm(join(versions, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
   }
   async discoverData() {
     const path = join(homedir(), '.dsh');
@@ -100,8 +117,11 @@ export class Manager {
     const active = { id: `bundled-${randomUUID()}`, version: manifest.version, commit: manifest.commit };
     const staging = this.directory({ id: `copy-${randomUUID()}` });
     await mkdir(join(this.root, 'versions'), { recursive: true });
-    await cp(join(this.payload, 'dsh'), staging, { recursive: true, verbatimSymlinks: true });
-    await rename(staging, this.directory(active));
+    const materialized = await materializeTree(join(this.payload, 'dsh'), staging);
+    this.log(`Materialized ${materialized.files} files (${materialized.linked} linked, ${materialized.copied} copied`
+      + `${materialized.fallback ? `, ${materialized.fallback} forced copies` : ''})`);
+    // A scanner can hold a handle inside the freshly written tree; the refusal clears on its own.
+    await retryOnBusy(() => rename(staging, this.directory(active)));
     await restoreRuntimeLinks(this.directory(active));
     this.registry.active = active; await this.persist();
   }
