@@ -81,7 +81,7 @@ test('failed recovery blocks startup, including explicit retry', async t => {
   await assert.rejects(recoverImport(manager), { code: 'importRecovery' });
   await assert.rejects(manager.start(), { code: 'importRecovery' });
   await assert.rejects(manager.retry(), { code: 'importRecovery' });
-  await assert.rejects(manager.exclusive(() => manager.activate()), { code: 'importRecovery' });
+  await assert.rejects(manager.exclusive(() => manager.update({ kind: 'release', tag: 'dsh-v1.0.0' })), { code: 'importRecovery' });
 });
 test('a new home can be imported without preexisting client data', async t => {
   const { manager, source } = await fixture(t);

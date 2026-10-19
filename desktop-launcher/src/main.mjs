@@ -6,10 +6,12 @@ import { mkdir, appendFile, stat, rename, writeFile, mkdtemp, readFile, readdir,
 import { zh as copy } from '../ui/copy.mjs';
 import { createServer } from 'node:net';
 import { Manager } from './manager.mjs';
-import { LauncherError, RELEASES, selectRelease, redact } from './core.mjs';
+import { discoverUpdate } from './update-channel.mjs';
+import { LauncherError, redact } from './core.mjs';
 
 const base = dirname(dirname(fileURLToPath(import.meta.url)));
 const page = pathToFileURL(join(base, 'ui/index.html')).href;
+const installRuntime = process.argv.includes('--install-runtime');
 const smoke = process.argv.includes('--smoke');
 const smokeWorkspace = process.argv.includes('--smoke-workspace');
 const smokeRoot = app.isPackaged ? join(app.getPath('temp'), 'personal-dsh-launcher-smoke') : join(base, '.cache/test-results');
@@ -58,13 +60,20 @@ async function applyProxy() {
     await target.closeAllConnections();
   }
 }
-async function requestRelease() {
-  const response = await session.fromPartition('launcher-updates').fetch(RELEASES, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'personal-dsh-launcher' },
-    signal: AbortSignal.timeout(30000),
+async function requestRelease(channel = manager.settings.channel) {
+  const signal = AbortSignal.timeout(30000);
+  return discoverUpdate(channel, async url => {
+    const response = await session.fromPartition('launcher-updates').fetch(url, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'personal-dsh-launcher' }, signal,
+    });
+    if (!response.ok) throw new LauncherError('network', `GitHub HTTP ${response.status}`);
+    return response.json();
   });
-  if (!response.ok) throw new LauncherError('network', `GitHub HTTP ${response.status}`);
-  return selectRelease(await response.json());
+}
+async function confirmMaintenance(restore = false) {
+  const result = await dialog.showMessageBox(window, { type: 'warning', message: restore ? copy.restoreConfirm : copy.updateConfirm,
+    detail: copy.updateDetail, buttons: [copy.cancelDialog, copy.continueDialog], defaultId: 0, cancelId: 0 });
+  return result.response === 1;
 }
 async function showWorkspace() {
   if (!manager.url) throw new LauncherError('start');
@@ -101,7 +110,9 @@ async function action(name, value) {
     default: return manager.exclusive(async signal => {
       switch (name) {
         case 'start': await manager.start(); await showWorkspace(); break;
-        case 'retry': await manager.retry(); workspace?.destroy(); await showWorkspace(); break;
+        case 'retry':
+        case 'repair': if (await confirmMaintenance()) { workspace?.destroy(); await manager.repair(signal); await showWorkspace(); } break;
+        case 'restore': if (await confirmMaintenance(true)) { workspace?.destroy(); await manager.restoreBundled(signal); await showWorkspace(); } break;
         case 'stop': if (await confirmInterrupt()) { await manager.stop(); workspace?.destroy(); } break;
         case 'restart': if (await confirmInterrupt()) { await manager.stop(); workspace?.destroy(); await manager.start(); await showWorkspace(); } break;
         case 'discoverData': await manager.discoverData(); break;
@@ -126,11 +137,17 @@ async function action(name, value) {
           catch (cause) { throw new LauncherError('importBrowser', '', { cause }); }
           return { imported: true };
         }
-        case 'settings': await manager.saveSettings(value); await applyProxy(); break;
+        case 'settings': {
+          const changed = value.channel !== manager.settings.channel;
+          await manager.saveSettings(value); if (changed) latest = null; await applyProxy(); break;
+        }
+        case 'channel': await manager.saveSettings({ ...manager.settings, channel: value }); latest = null; publish(); break;
         case 'check': latest = await requestRelease(); publish(); break;
-        case 'testProxy': await requestRelease(); break;
-        case 'prepare': if (!latest) throw new LauncherError('release'); await manager.prepareUpdate(latest, signal); break;
-        case 'activate': if (await confirmInterrupt()) { workspace?.destroy(); await manager.activate(); await showWorkspace(); } break;
+        case 'testProxy': await requestRelease('main'); break;
+        case 'prepare':
+          if (!latest || latest.channel !== manager.settings.channel) throw new LauncherError('release');
+          if (await confirmMaintenance()) { workspace?.destroy(); await manager.update(latest, signal); await showWorkspace(); }
+          break;
         default: throw new LauncherError('action');
       }
     });
@@ -138,7 +155,22 @@ async function action(name, value) {
 }
 async function main() {
   await mkdir(root, { recursive: true, mode: 0o700 });
-  manager = new Manager(root, payload, publish, log);
+  manager = new Manager(root, payload, publish, log, { requireInstallation: app.isPackaged && !smokeWorkspace });
+  if (installRuntime) {
+    try {
+      await manager.initialize();
+      await manager.exclusive(() => manager.installRuntime());
+      await manager.close();
+      await logQueue;
+      allowedQuit = true; app.exit(0);
+    } catch (error) {
+      log(error.message);
+      await manager.close(); await logQueue;
+      console.error(copy.errors[error.code] || copy.errors.unexpected);
+      allowedQuit = true; app.exit(1);
+    }
+    return;
+  }
   window = new BrowserWindow({ width: 780, height: 660, minWidth: 620, minHeight: 560, title: 'DSH Launcher',
     backgroundColor: '#0b1120', webPreferences: { preload: join(base, 'src/preload.cjs'), sandbox: true, contextIsolation: true, nodeIntegration: false } });
   secureWindow(window);
@@ -211,6 +243,23 @@ async function main() {
     })()`);
     if (!fits) throw new Error('Default window clips settings actions');
     await mkdir(smokeRoot, { recursive: true });
+    const channelsWork = await window.webContents.executeJavaScript(`(async () => {
+      const select = document.getElementById('channel');
+      if ([...select.options].map(option => option.value).join(',') !== 'stable,preview,main') return false;
+      for (const channel of ['preview', 'main', 'stable']) {
+        const result = await window.launcher.invoke('channel', channel);
+        if (!result.ok) return false;
+        const state = await window.launcher.invoke('state');
+        if (!state.ok || state.value.settings.channel !== channel || state.value.latest !== null) return false;
+      }
+      document.querySelector('[data-tab=updates]').click();
+      return ['prepare', 'repair', 'restore'].every(action => !!document.querySelector('[data-action=' + action + ']'));
+    })()`);
+    if (!channelsWork) throw new Error('Update channel IPC or maintenance controls failed');
+    await window.webContents.executeJavaScript('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    await writeFile(join(smokeRoot, 'updates.png'), (await window.webContents.capturePage()).toPNG());
+    await window.webContents.executeJavaScript("document.querySelector('[data-tab=connection]').click()");
+    await mkdir(smokeRoot, { recursive: true });
     window.setSize(620, 560);
     const narrowFits = await window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => {
       resolve(document.documentElement.scrollWidth <= innerWidth);
@@ -252,11 +301,11 @@ async function main() {
     if (!text.includes('代理设置') || !text.includes('官方更新') || !text.includes('导入默认数据') || !text.includes('选择目录导入')) throw new Error('Management UI failed to render');
     console.log('LAUNCHER_UI_SMOKE_OK'); allowedQuit = true; app.quit(); return;
   }
-  if (initialized && !manager.registry.recoveryRequired) {
+  if (initialized && !manager.registry.recoveryRequired && !manager.registry.maintenance) {
     void manager.exclusive(async () => { await manager.start(); await showWorkspace(); }).catch(() => {});
   }
 }
-if (!owns) app.quit();
+if (!owns) app.exit(installRuntime ? 2 : 0);
 else {
   app.on('second-instance', () => { if (window && !window.isDestroyed()) { window.show(); window.focus(); } });
   app.on('before-quit', event => {

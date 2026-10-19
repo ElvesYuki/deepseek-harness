@@ -20,7 +20,7 @@ test('release selection ignores drafts, other product tags and option-like input
     { tag_name: 'dsh-v2.0.0-alpha.1', published_at: '2026-10-02', draft: false },
     { tag_name: 'vendor-v9.0.0', published_at: '2026-10-03' },
     { tag_name: 'dsh-v3.0.0', published_at: '2026-10-04', draft: true },
-  ]);
+  ], 'preview');
   assert.equal(release.version, '2.0.0-alpha.1');
   assert.equal(release.url, 'https://github.com/deepseek-ai/deepseek-harness/releases/tag/dsh-v2.0.0-alpha.1');
 });

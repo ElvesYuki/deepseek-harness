@@ -1,11 +1,11 @@
-/** Runtime switching preserves a recovery marker and a quiescent data backup on failed startup. */
+/** Runtime startup preserves process ownership and validates stored directory selection. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Manager } from '../src/manager.mjs';
-import { LauncherError, saveJson } from '../src/core.mjs';
+import { saveJson } from '../src/core.mjs';
 
 async function fixture(t) {
   const root = await mkdtemp(join(tmpdir(), 'launcher-manager-'));
@@ -31,42 +31,6 @@ test('concurrent mutations are refused while a preparation is pending', async t 
   try { await assert.rejects(manager.exclusive(() => {}), { code: 'busy' }); }
   finally { release(); await pending; }
   assert.equal(manager.busy, false);
-});
-test('failed new-version startup retains the original data backup and blocks automatic retry on next launch', async t => {
-  const manager = await fixture(t);
-  manager.registry = { active: { id: 'old', version: '1.0.0' }, prepared: { id: 'new', version: '2.0.0' } };
-  await mkdir(manager.paths.home);
-  await writeFile(join(manager.paths.home, 'session.json'), 'original');
-  let stopped = false;
-  manager.stop = async () => { stopped = true; };
-  manager.startService = async () => {
-    assert.equal(stopped, true);
-    await writeFile(join(manager.paths.home, 'session.json'), 'migrated');
-    throw new LauncherError('start');
-  };
-  await assert.rejects(manager.exclusive(() => manager.activate()), { code: 'start' });
-  const registry = JSON.parse(await readFile(join(manager.root, 'runtime.json'), 'utf8'));
-  assert.equal(registry.previous.id, 'old');
-  assert.equal(registry.active.id, 'new');
-  assert.equal(registry.recoveryRequired, true);
-  const recovery = JSON.parse(await readFile(join(registry.backup, 'recovery.json'), 'utf8'));
-  assert.equal(recovery.previous.id, 'old');
-  assert.equal(recovery.target.id, 'new');
-  assert.equal(await readFile(join(registry.backup, 'dsh-home/session.json'), 'utf8'), 'original');
-  assert.equal(await readFile(join(manager.paths.home, 'session.json'), 'utf8'), 'migrated');
-  const reopened = new Manager(manager.root, manager.payload, () => {}, () => {});
-  await reopened.initialize();
-  await assert.rejects(reopened.start(), { code: 'recovery' });
-});
-test('successful activation clears the durable recovery marker', async t => {
-  const manager = await fixture(t);
-  manager.registry = { active: { id: 'old', version: '1.0.0' }, prepared: { id: 'new', version: '2.0.0' } };
-  manager.stop = async () => {};
-  manager.startService = async () => {};
-  await manager.exclusive(() => manager.activate());
-  const registry = JSON.parse(await readFile(join(manager.root, 'runtime.json'), 'utf8'));
-  assert.equal(registry.recoveryRequired, false);
-  assert.equal(registry.prepared, null);
 });
 test('stored runtime paths cannot escape the owned versions directory', async t => {
   const manager = await fixture(t);

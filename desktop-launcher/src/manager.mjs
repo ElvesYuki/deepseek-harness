@@ -1,5 +1,5 @@
-/** DSH runtime preparation, service ownership, and staged updates from the official repository. */
-import { access, cp, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
+/** DSH runtime preparation, service ownership, and journaled in-place updates from the official repository. */
+import { access, lstat, mkdir, readFile, readdir, rename, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { toolPaths } from './platform.mjs';
 import { restoreRuntimeLinks } from './runtime-links.mjs';
@@ -9,10 +9,12 @@ import { inspectHome, importHome, recoverImport } from './data-import.mjs';
 import { createServer } from 'node:net';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
-import { DEFAULTS, UPSTREAM, LauncherError, childEnvironment, loadJson, retryOnBusy, saveJson, validateSettings, releaseTag } from './core.mjs';
+import { DEFAULTS, UPSTREAM, LauncherError, childEnvironment, loadJson, retryOnBusy, saveJson, validateSettings } from './core.mjs';
 import { readyUrl } from './readiness.mjs';
 import { launch, run } from './process.mjs';
 import semver from 'semver';
+import { assertRuntimeDirectory, detachRuntimeFiles } from './runtime-files.mjs';
+import { updateTarget, targetRef } from './update-target.mjs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
@@ -30,7 +32,8 @@ async function requestedPort(port) {
 
 /** Application-owned runtime registry. All public mutations must run through exclusive(). */
 export class Manager {
-  constructor(root, payload, publish, log) {
+  constructor(root, payload, publish, log, { requireInstallation = false } = {}) {
+    this.requireInstallation = requireInstallation;
     this.root = root; this.payload = payload; this.publish = publish; this.log = log;
     this.settings = { ...DEFAULTS }; this.registry = {}; this.phase = 'idle'; this.busy = false;
     this.service = null; this.url = null; this.prepared = null; this.failure = null; this.failurePath = null;
@@ -39,7 +42,7 @@ export class Manager {
   }
   snapshot() {
     return { phase: this.phase, busy: this.busy, settings: this.settings, active: this.registry.active ?? null,
-      defaultData: this.defaultData ?? null, prepared: this.registry.prepared ?? null, recoveryRequired: !!this.registry.recoveryRequired,
+      defaultData: this.defaultData ?? null, prepared: this.registry.prepared ?? null, recoveryRequired: !!this.registry.recoveryRequired || !!this.registry.maintenance, maintenance: this.registry.maintenance ?? null,
       actualPort: this.url ? Number(new URL(this.url).port) : null, failure: this.failure, failurePath: this.failurePath, running: !!this.service && !this.service.ended };
   }
   emit() { this.publish(this.snapshot()); }
@@ -56,11 +59,17 @@ export class Manager {
     if (!this.registry || typeof this.registry !== 'object') throw new LauncherError('state');
     if (this.registry.active) this.directory(this.registry.active);
     if (this.registry.prepared) this.directory(this.registry.prepared);
+    if (this.registry.maintenance) {
+      const pending = this.registry.maintenance;
+      if (!['update', 'repair', 'restore'].includes(pending.kind) || pending.id !== this.registry.active?.id) throw new LauncherError('state');
+      if (pending.kind !== 'restore') updateTarget(pending.target);
+    }
     await this.sweepStaging();
     await recoverImport(this);
     await this.discoverData();
     if (this.registry.active?.verified === false) this.failure = 'payloadIncomplete';
     if (this.registry.recoveryRequired) this.failure = 'recovery';
+    if (this.registry.maintenance) this.failure = 'maintenance';
     this.emit();
   }
   /**
@@ -87,7 +96,10 @@ export class Manager {
     }
     this.emit();
   }
-  async importData(source) { await importHome(this, source); }
+  async importData(source) {
+    if (this.registry.maintenance) throw new LauncherError('maintenance');
+    await importHome(this, source);
+  }
   async exclusive(operation) {
     if (this.registry.importPending) throw new LauncherError('importRecovery');
     if (this.busy) throw new LauncherError('busy');
@@ -106,8 +118,11 @@ export class Manager {
     await saveJson(join(this.root, 'settings.json'), settings);
     this.settings = settings; this.emit();
   }
-  async ensureInitial() {
+  /** Refuse known incomplete versions; failed materialization remains staged and never becomes active. */
+  async ensureInitial(install = false) {
+    if (this.registry.active?.verified === false) throw new LauncherError('payloadIncomplete');
     if (this.registry.active) return;
+    if (this.requireInstallation && !install) throw new LauncherError('installationRequired');
     let manifest;
     try {
       manifest = JSON.parse(await readFile(join(this.payload, 'manifest.json'), 'utf8'));
@@ -115,27 +130,46 @@ export class Manager {
     } catch (cause) { throw new LauncherError('payload', '', { cause }); }
     if (manifest.platform !== process.platform || manifest.arch !== process.arch) throw new LauncherError('platform');
     this.phase = 'preparing'; this.emit();
-    const active = { id: `bundled-${randomUUID()}`, version: manifest.version, commit: manifest.commit };
+    const active = { id: 'current', version: manifest.version, commit: manifest.commit };
     const staging = this.directory({ id: `copy-${randomUUID()}` });
     await mkdir(join(this.root, 'versions'), { recursive: true });
-    const materialized = await materializeTree(join(this.payload, 'dsh'), staging);
+    const materialized = await materializeTree(join(this.payload, 'dsh'), staging, this.controller?.signal);
     this.log(`Materialized ${materialized.files} files (${materialized.linked} linked, ${materialized.copied} copied`
       + `${materialized.fallback ? `, ${materialized.fallback} forced copies` : ''})`);
     // The build recorded the payload's file count; a payload that lost files before materialization
     // (a dropped extraction, a partial copy) is reported rather than served.
     const verified = typeof manifest.files !== 'number' || manifest.files === materialized.files;
-    if (!verified) this.log(`Payload holds ${materialized.files} files but the build recorded ${manifest.files}`);
+    if (!verified) {
+      this.log(`Payload holds ${materialized.files} files but the build recorded ${manifest.files}`);
+      throw new LauncherError('payloadIncomplete');
+    }
     active.files = materialized.files; active.verified = verified;
     // A scanner can hold a handle inside the freshly written tree; the refusal clears on its own.
+    // An interrupted first publication may leave an unregistered program at this fixed path.
+    await rm(this.directory(active), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     await retryOnBusy(() => rename(staging, this.directory(active)));
     await restoreRuntimeLinks(this.directory(active));
     this.registry.active = active; await this.persist();
   }
+  /** Prepare the fixed runtime during installation, without starting services or replacing an existing version. */
+  async installRuntime() {
+    if (this.registry.maintenance) throw new LauncherError('maintenance');
+    if (this.registry.recoveryRequired) throw new LauncherError('recovery');
+    if (this.registry.importPending) throw new LauncherError('importRecovery');
+    await this.ensureInitial(true);
+    const root = this.directory(this.registry.active);
+    await assertRuntimeDirectory(join(this.root, 'versions'), root);
+    await access(join(root, 'apps/web/dist/index.html'));
+    await access(join(root, 'apps/cli/src/bin.ts'));
+    this.log('INSTALL_RUNTIME_READY');
+  }
   async start() {
+    if (this.registry.maintenance) throw new LauncherError('maintenance');
     if (this.registry.recoveryRequired) throw new LauncherError('recovery');
     await this.startService();
   }
-  async startService() {
+  async startService(maintenance = false) {
+    if (this.registry.maintenance && !maintenance) throw new LauncherError('maintenance');
     if (this.registry.importPending) throw new LauncherError('importRecovery');
     if (this.service && !this.service.ended) return;
     await this.ensureInitial();
@@ -186,56 +220,114 @@ export class Manager {
     await service.stop();
     this.service = null; this.url = null; this.phase = 'stopped'; this.emit();
   }
-  async prepareUpdate(release, signal) {
-    const tag = releaseTag(release.tag);
-    if (this.registry.active?.version === release.version) throw new LauncherError('current');
-    await this.ensureInitial();
-    const record = { id: `update-${randomUUID()}`, version: release.version, tag };
-    const root = this.directory(record);
-    await mkdir(root, { recursive: true });
-    const options = { cwd: root, env: this.env('update') };
-    const command = (binary, args) => run(binary, args, options, this.log, signal);
-    this.phase = 'fetching'; this.emit();
-    await command(this.git, ['init', '-q']);
-    await command(this.git, ['-c', 'credential.helper=', 'fetch', '--progress', '--depth=1', UPSTREAM, `refs/tags/${tag}`]);
+  /** Execute within the fixed runtime; capture only bounded output needed for Git identity. */
+  async runtimeCommand(binary, args, signal, capture = false) {
+    let output = '';
+    await run(binary, args, { cwd: this.directory(this.registry.active), env: this.env('update') }, chunk => {
+      this.log(chunk);
+      if (capture) output = (output + chunk).slice(-4096);
+    }, signal);
+    return output.trim();
+  }
+  /** Persist the interruption marker before any source or dependency mutation. */
+  async beginMaintenance(kind, target) {
+    if (this.registry.importPending) throw new LauncherError('importRecovery');
+    await this.stop();
+    if (!this.registry.active) await this.ensureInitial(true);
+    const root = this.directory(this.registry.active);
+    await assertRuntimeDirectory(join(this.root, 'versions'), root);
+    const pending = { kind, id: this.registry.active.id, ...(target ? { target } : {}) };
+    this.registry.maintenance = pending;
+    await this.persist();
+    this.emit();
+    return root;
+  }
+  /** Keep the marker until the rebuilt runtime starts and its successful state is durable. */
+  async finishMaintenance(record, signal) {
+    if (signal?.aborted) throw new LauncherError('cancelled');
+    this.registry.active = { ...record, id: this.registry.active.id, verified: true };
+    await this.persist();
+    await this.startService(true);
+    if (signal?.aborted) { await this.stop(); throw new LauncherError('cancelled'); }
+    const pending = this.registry.maintenance;
+    const recoveryRequired = this.registry.recoveryRequired;
+    delete this.registry.maintenance;
+    this.registry.recoveryRequired = false;
+    try { await this.persist(); }
+    catch (error) {
+      this.registry.maintenance = pending;
+      this.registry.recoveryRequired = recoveryRequired;
+      await this.stop();
+      throw error;
+    }
+  }
+  /** Update the fixed runtime without backups; failed or interrupted work blocks ordinary startup. */
+  async update(value, signal, kind = 'update') {
+    const target = updateTarget(value);
+    const root = await this.beginMaintenance(kind, target);
+    this.phase = 'preparing'; this.emit();
+    await detachRuntimeFiles(root, signal);
     const hooks = join(this.root, 'empty-git-hooks');
     await mkdir(hooks, { recursive: true });
-    await command(this.git, ['-c', `core.hooksPath=${hooks}`, 'checkout', '--detach', 'FETCH_HEAD']);
+    const metadata = await lstat(join(root, '.git')).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+    if (metadata && !metadata.isDirectory()) throw new LauncherError('state');
+    const git = args => this.runtimeCommand(this.git, ['-c', `core.hooksPath=${hooks}`, '-c', 'credential.helper=', ...args], signal);
+    this.phase = 'fetching'; this.emit();
+    await git(['init', '-q']);
+    await git(['fetch', '--progress', '--depth=1', '--no-tags', UPSTREAM, targetRef(target)]);
+    const commit = await this.runtimeCommand(this.git, ['rev-parse', 'FETCH_HEAD'], signal, true);
+    if (!/^[a-f0-9]{40}$/.test(commit) || (target.kind === 'commit' && commit !== target.commit)) throw new LauncherError('state');
+    this.registry.maintenance.target = { kind: 'commit', commit };
+    await this.persist();
+    await git(['reset', '--hard', commit]);
+    // This directory owns program files only. Remove obsolete generated files before rebuilding.
+    await git(['clean', '-ffdx']);
     const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+    if (target.kind === 'release' && manifest.version !== target.version) throw new LauncherError('release');
     const bundled = JSON.parse(await readFile(join(this.payload, 'manifest.json'), 'utf8'));
     if (manifest.packageManager !== bundled.packageManager || !manifest.engines?.node
       || !semver.satisfies(bundled.nodeVersion, manifest.engines.node)) throw new LauncherError('toolchain');
     this.phase = 'building'; this.emit();
-    await command(this.node, [this.pnpm, 'install', '--frozen-lockfile']);
-    await command(this.node, [this.pnpm, 'run', 'build']);
+    await this.runtimeCommand(this.node, [this.pnpm, 'install', '--frozen-lockfile'], signal);
+    await this.runtimeCommand(this.node, [this.pnpm, 'run', 'build'], signal);
     await access(join(root, 'apps/web/dist/index.html'));
-    await command(this.node, ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--help']);
-    this.registry.prepared = record; await this.persist();
-    this.phase = this.service ? 'running' : 'stopped'; this.emit();
+    await this.runtimeCommand(this.node, ['--import', 'tsx/esm', 'apps/cli/src/bin.ts', '--help'], signal);
+    await this.finishMaintenance({ version: manifest.version, commit, ...(target.kind === 'release' ? { tag: target.tag } : {}) }, signal);
   }
-  async activate() {
-    if (!this.registry.prepared) throw new LauncherError('release');
-    await this.stop();
-    this.phase = 'backup'; this.emit();
-    const backup = join(this.root, 'backups', randomUUID());
-    await mkdir(backup, { recursive: true, mode: 0o700 });
-    const homeExists = await access(this.paths.home).then(() => true, error => { if (error.code === 'ENOENT') return false; throw error; });
-    if (homeExists) await cp(this.paths.home, join(backup, 'dsh-home'), { recursive: true, verbatimSymlinks: true });
-    await saveJson(join(backup, 'recovery.json'), { previous: this.registry.active, target: this.registry.prepared,
-      createdAt: new Date().toISOString(), hadDataDirectory: homeExists });
-    this.registry.previous = this.registry.active;
-    this.registry.active = this.registry.prepared;
-    this.registry.prepared = null;
-    this.registry.backup = backup;
-    this.registry.recoveryRequired = true;
-    await this.persist();
-    await this.startService();
-    this.registry.recoveryRequired = false; await this.persist();
+  /** Retry the interrupted target, or rebuild the exact commit of the current version. */
+  async repair(signal) {
+    if (this.registry.importPending) throw new LauncherError('importRecovery');
+    if (this.registry.maintenance?.kind === 'restore') return this.restoreBundled(signal);
+    if (!this.registry.maintenance) {
+      const bundled = JSON.parse(await readFile(join(this.payload, 'manifest.json'), 'utf8'));
+      // Fork snapshots may not be fetchable from the official repository; their exact source is bundled.
+      if (bundled.commit && bundled.commit === this.registry.active?.commit) return this.restoreBundled(signal);
+    }
+    const target = this.registry.maintenance?.target ?? { kind: 'commit', commit: this.registry.active?.commit };
+    return this.update(target, signal, 'repair');
   }
-  async retry() {
-    await this.startService();
-    this.registry.recoveryRequired = false; await this.persist();
+  /** Recreate program files from the offline payload at the same path; user data is untouched. */
+  async restoreBundled(signal) {
+    const manifest = JSON.parse(await readFile(join(this.payload, 'manifest.json'), 'utf8'));
+    if (manifest.platform !== process.platform || manifest.arch !== process.arch) throw new LauncherError('platform');
+    await access(join(this.payload, 'dsh/apps/web/dist/index.html'));
+    const firstPreparation = !this.registry.active;
+    const root = await this.beginMaintenance('restore');
+    if (firstPreparation) {
+      await this.finishMaintenance(this.registry.active, signal);
+      return;
+    }
+    this.phase = 'restoring'; this.emit();
+    for (const name of await readdir(root)) {
+      if (signal?.aborted) throw new LauncherError('cancelled');
+      await rm(join(root, name), { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    }
+    const result = await materializeTree(join(this.payload, 'dsh'), root, signal);
+    if (typeof manifest.files === 'number' && manifest.files !== result.files) throw new LauncherError('payloadIncomplete');
+    await restoreRuntimeLinks(root);
+    await this.finishMaintenance({ version: manifest.version, commit: manifest.commit, files: result.files }, signal);
   }
+  async retry(signal) { return this.repair(signal); }
   async close() {
     this.controller?.abort();
     await this.stop();

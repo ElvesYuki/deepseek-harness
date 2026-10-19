@@ -60,7 +60,26 @@
       "identity": null
     },
     "dmg": {
-      "title": "DSH Launcher"
+      "title": "DSH Launcher",
+      "contents": [
+        {
+          "x": 130,
+          "y": 140,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 140,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 270,
+          "y": 300,
+          "type": "file",
+          "path": "installer/Install DSH Launcher.command"
+        }
+      ]
     },
     "electronDist": "node_modules/electron/dist",
     "win": {
@@ -80,7 +99,9 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "deleteAppDataOnUninstall": false,
-      "runAfterFinish": false
+      "runAfterFinish": false,
+      "include": "installer/windows.nsh",
+      "allowElevation": false
     }
   },
   "description": "Independent Electron launcher for DeepSeek Harness",

@@ -22,7 +22,7 @@ for (const tab of tabs) {
   });
 }
 function formSettings() {
-  return { port: Number($('port').value), proxy: $('proxy').value,
+  return { channel: currentState.settings.channel, port: Number($('port').value), proxy: $('proxy').value,
     proxyUpdates: $('proxyUpdates').checked, proxyService: $('proxyService').checked, proxyBrowser: $('proxyBrowser').checked };
 }
 function renderDirty() {
@@ -44,10 +44,11 @@ function render(next) {
   document.querySelector('[data-action=open]').classList.toggle('primary', next.running);
   $('defaultData').textContent = (next.defaultData?.available ? copy.importFound : copy.importMissing) + (next.defaultData?.path || '~/.dsh');
   $('phase').textContent = copy.phase[next.phase] || next.phase;
-  $('version').textContent = next.active ? copy.version + next.active.version : copy.noVersion;
+  $('version').textContent = next.active ? copy.version + next.active.version + (next.active.commit ? ' · ' + next.active.commit.slice(0, 10) : '') : copy.noVersion;
   $('actualPort').textContent = next.actualPort ? copy.actualPort + next.actualPort + (next.actualPort !== next.settings.port ? copy.autoPort : '') : '';
   $('latest').textContent = next.latest ? copy.latest + next.latest.version : copy.noRelease;
-  document.querySelector('[data-action=activate]').textContent = next.prepared ? copy.activate + ' ' + next.prepared.version : copy.activate;
+  $('channel').value = next.settings.channel;
+  $('channel').disabled = next.busy;
   $('notes').textContent = next.latest?.notes || '';
   $('logs').textContent = (next.logs || []).join('\n');
   $('logs').scrollTop = $('logs').scrollHeight;
@@ -61,12 +62,13 @@ function render(next) {
     if (action === 'open') button.disabled = !next.running || next.busy;
     if (['stop', 'restart'].includes(action)) button.disabled = !next.running || next.busy;
     if (action === 'start') button.disabled = next.running || next.busy || next.recoveryRequired;
-    if (action === 'prepare') button.disabled = !next.latest || next.busy || next.latest.version === next.active?.version;
-    if (action === 'activate') button.disabled = !next.prepared || next.busy;
+    if (action === 'prepare') button.disabled = !next.latest || next.busy;
+    if (action === 'repair') button.disabled = next.busy || (!next.active?.commit && !next.maintenance);
+    if (action === 'restore') button.disabled = next.busy;
     if (action === 'start') button.hidden = next.running;
     if (['stop', 'restart'].includes(action)) button.hidden = !next.running;
-    if (action === 'cancel') button.hidden = !['fetching', 'building'].includes(next.phase) || !next.busy;
-    if (action === 'cancel') button.disabled = !['fetching', 'building'].includes(next.phase) || !next.busy;
+    if (action === 'cancel') button.hidden = !['preparing', 'fetching', 'building', 'restoring'].includes(next.phase) || !next.busy;
+    if (action === 'cancel') button.disabled = !['preparing', 'fetching', 'building', 'restoring'].includes(next.phase) || !next.busy;
   }
   const serialized = JSON.stringify(next.settings);
   if (!dirty && serialized !== previousSettings) {
@@ -90,6 +92,7 @@ async function invoke(action, value) {
   } catch { $('notice').textContent = copy.errors.unexpected; }
 }
 for (const button of document.querySelectorAll('[data-action]')) button.addEventListener('click', () => void invoke(button.dataset.action));
+$('channel').addEventListener('change', () => void invoke('channel', $('channel').value));
 $('settings').addEventListener('input', () => {
   const values = formSettings();
   dirty = Object.entries(currentState.settings).some(([key, value]) => values[key] !== value);

@@ -1,8 +1,8 @@
 /** The recorded payload size must match materialization, and a short payload must stay visible. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, rm, writeFile, symlink } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdtemp, mkdir, rm, writeFile, symlink, readdir } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Manager } from '../src/manager.mjs';
 import { materializeTree } from '../src/materialize.mjs';
@@ -35,4 +35,41 @@ test('a payload recorded as unverified keeps reporting an incomplete payload', a
   t.after(() => manager.close());
   await manager.initialize();
   assert.equal(manager.failure, 'payloadIncomplete');
+  for (const start of [() => manager.start(), () => manager.startService()]) {
+    await assert.rejects(manager.exclusive(start), { code: 'payloadIncomplete' });
+    assert.equal(manager.service, null);
+    assert.equal(manager.failure, 'payloadIncomplete');
+  }
+  manager.registry.recoveryRequired = true;
+  await assert.rejects(manager.exclusive(() => manager.startService()), { code: 'payloadIncomplete' });
+  assert.equal(manager.registry.recoveryRequired, true);
+  assert.equal(manager.service, null);
+});
+
+test('an incomplete initial payload never becomes active or starts a service', async t => {
+  const root = await fixture(t, 'launcher-integrity-short-');
+  const payload = join(root, 'payload');
+  const manager = new Manager(join(root, 'data'), payload, () => {}, () => {});
+  t.after(() => manager.close());
+  for (const path of [manager.node, manager.git, manager.pnpm, join(payload, 'dsh/apps/web/dist/index.html')]) {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, 'fixture');
+  }
+  await writeFile(join(payload, 'manifest.json'), JSON.stringify({
+    version: '1.0.0', platform: process.platform, arch: process.arch, files: 2,
+  }));
+  await manager.initialize();
+  await assert.rejects(manager.exclusive(() => manager.start()), { code: 'payloadIncomplete' });
+  assert.equal(manager.registry.active, undefined);
+  assert.equal(manager.service, null);
+  assert.equal(manager.failure, 'payloadIncomplete');
+  const staged = await readdir(join(manager.root, 'versions'));
+  assert.equal(staged.length, 1);
+  assert.ok(staged[0].startsWith('copy-'));
+  const reopened = new Manager(manager.root, payload, () => {}, () => {});
+  t.after(() => reopened.close());
+  await reopened.initialize();
+  await assert.rejects(reopened.exclusive(() => reopened.start()), { code: 'payloadIncomplete' });
+  assert.equal(reopened.registry.active, undefined);
+  assert.equal(reopened.service, null);
 });

@@ -20,7 +20,7 @@ export async function buildFingerprint(launcher) {
       else throw new Error('Build inputs must contain ordinary files');
     }
   }
-  for (const folder of ['src', 'scripts']) await visit(folder);
+  for (const folder of ['src', 'scripts', 'installer']) await visit(folder);
   return hash.digest('hex');
 }
 

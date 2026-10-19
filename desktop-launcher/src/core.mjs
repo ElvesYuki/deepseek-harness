@@ -5,8 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
 export const UPSTREAM = 'https://github.com/deepseek-ai/deepseek-harness.git';
-export const RELEASES = 'https://api.github.com/repos/deepseek-ai/deepseek-harness/releases?per_page=30';
-export const DEFAULTS = Object.freeze({ port: 3088, proxy: '', proxyUpdates: true, proxyService: true, proxyBrowser: false });
+export const DEFAULTS = Object.freeze({ port: 3088, proxy: '', proxyUpdates: true, proxyService: true, proxyBrowser: false, channel: 'stable' });
 
 /** Stable error code used by the localized management UI. */
 export class LauncherError extends Error {
@@ -20,6 +19,8 @@ export function validateSettings(value) {
     || ['proxyUpdates', 'proxyService', 'proxyBrowser'].some(key => typeof value[key] !== 'boolean')) {
     throw new LauncherError('settings');
   }
+  const channel = value.channel ?? 'stable';
+  if (!['stable', 'preview', 'main'].includes(channel)) throw new LauncherError('settings');
   let proxy = value.proxy.trim();
   if (proxy) {
     let url;
@@ -28,7 +29,7 @@ export function validateSettings(value) {
       || url.search || url.hash || url.pathname !== '/') throw new LauncherError('settings');
     proxy = url.origin;
   }
-  return { port: value.port, proxy, proxyUpdates: value.proxyUpdates, proxyService: value.proxyService, proxyBrowser: value.proxyBrowser };
+  return { port: value.port, proxy, channel, proxyUpdates: value.proxyUpdates, proxyService: value.proxyService, proxyBrowser: value.proxyBrowser };
 }
 
 /** Atomic replacement preserves the previous JSON file when writing fails. */
@@ -68,15 +69,17 @@ export function releaseTag(tag) {
   return tag;
 }
 
-/** Return the most recently published product release, including previews, from official API data. */
-export function selectRelease(rows) {
+/** Select the newest published DSH release in the requested channel; stable never falls back to previews. */
+export function selectRelease(rows, channel = 'stable') {
+  if (!['stable', 'preview'].includes(channel)) throw new LauncherError('release');
   if (!Array.isArray(rows)) throw new LauncherError('release');
   const release = rows.filter(row => row && !row.draft && typeof row.tag_name === 'string'
+    && (channel === 'preview' || (row.prerelease === false && !row.tag_name.slice(5).includes('-')))
     && /^dsh-v\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?$/.test(row.tag_name)
     && Number.isFinite(Date.parse(row.published_at)))
     .sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))[0];
-  if (!release) throw new LauncherError('release');
-  return { tag: releaseTag(release.tag_name), version: release.tag_name.slice(5),
+  if (!release) throw new LauncherError(channel === 'stable' ? 'noStable' : 'release');
+  return { kind: 'release', channel, tag: releaseTag(release.tag_name), version: release.tag_name.slice(5),
     published: release.published_at, notes: typeof release.body === 'string' ? release.body.slice(0, 24000) : '',
     url: `https://github.com/deepseek-ai/deepseek-harness/releases/tag/${release.tag_name}` };
 }

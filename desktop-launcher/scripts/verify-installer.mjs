@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import { installerPath } from './installer-path.mjs';
 
 const root = resolve(import.meta.dirname, '..');
 const cache = join(root, '.cache');
@@ -50,11 +51,10 @@ function countPayloadEntries(seven, installer, prefix) {
 }
 
 const manifest = JSON.parse(await readFile(join(cache, 'payload/manifest.json'), 'utf8'));
+const launcher = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+const installer = await installerPath(join(cache, 'dist'), launcher.version, process.argv[2]);
 const seven = await findSevenZip(join(cache, 'electron-builder'));
 if (!seven) throw new Error(`No 7za.exe below ${join(cache, 'electron-builder')}; run packaging once to download it.`);
-const installer = process.argv[2] ?? (await readdir(join(cache, 'dist')))
-  .filter(name => name.endsWith('Setup.exe')).map(name => join(cache, 'dist', name))[0];
-if (!installer) throw new Error(`No Setup.exe in ${join(cache, 'dist')}.`);
 const found = await countPayloadEntries(seven, installer, 'resources\\payload\\dsh\\');
 if (found !== manifest.files) {
   throw new Error(`Installer carries ${found} payload files, but the build recorded ${manifest.files};`
